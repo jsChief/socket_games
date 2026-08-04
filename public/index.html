@@ -25,7 +25,7 @@
             }
 
             body {
-                  background-image: url(Know_yourself.png);
+                  background-image: url(Textiles.png);
                   background-position: center;
                   background-size: cover;
                   background-repeat: no-repeat;
@@ -54,23 +54,23 @@
       <div id="app" class="h-full w-full">
             <!-- LOBBY VIEW -->
             <div v-show="view === 'lobby'" class="overflow-y-scroll h-full no-scrollbar">
-                  
-                  <p class="text-xl sm:text-2xl p-2 rounded-2xl w-full text-center bg-white/40">
-                        Game Lobby
-                        <span class="ml-2 inline-flex items-center gap-1 rounded-xl px-2 py-0.5 text-sm align-middle"
-                              :class="connectionBadgeClass">
-                              <span class="size-2 rounded-full" :class="connectionDotClass"></span>
-                              {{ connectionStatusText }}
-                        </span>
-                  </p>
-                  <div class="mt-2 flex flex-col items-center gap-1 rounded-2xl p-2 w-full backdrop-blur shadow-xl">
-                        <p class="px-2 py-1 text-sm rounded-xl bg-white/50">
-                              You:
-                              <span class="font-bold">{{ myName || "no name yet, set your name" }}</span>
-                        </p>
-                  </div>
 
-                  <div class="mt-3 rounded-2xl p-2 w-full bg-white/50 backdrop-blur shadow-xl">
+                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 backdrop-blur">
+                        Games Lobby
+                  </p>
+
+                        <div class="flex flex-col items-center gap-1 rounded-2xl p-2 w-fit backdrop-blur shadow-xl">
+                              <p class="px-2 py-1 text-sm rounded-2xl bg-white/50 flex items-center">
+                                    <span class="font-bold">{{ myName || "no name yet, set your name" }}</span>
+				<span class="ml-2 inline-flex items-center gap-1 rounded-xl px-2 py-0.5 text-sm align-middle"
+                                    :class="connectionBadgeClass">
+                                    <span class="size-2 rounded-full" :class="connectionDotClass"></span>
+                                    {{ connectionStatusText }}
+                              </span>
+                              </p>
+                        </div>
+
+                  <div class="mt-5 rounded-2xl p-2 w-full bg-white/50 backdrop-blur shadow-xl max-h-20/100 overflow-y-scroll no-scrollbar">
                         <p class="text-sm font-bold mb-1">
                               Online Players ({{ onlinePlayers.length }})
                         </p>
@@ -90,16 +90,16 @@
                         </div>
                   </div>
 
-                  <div class="text-2xl rounded-xl mt-4 mb-2 bg-white/40 p-2 w-fit font-bold mx-auto text-center">
+                  <div class="text-2xl rounded-xl mt-4 text-white bg-orange-600 p-2 w-fit font-bold text-center">
                         Games
                   </div>
 
-                  <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="mt-1 p-1 grid grid-cols-1 sm:grid-cols-2 gap-3 h-60/100 rounded-xl overflow-y-scroll no-scrollbar">
                         <div v-for="g in games" :key="g.id" @click="selectGame(g)" :class="
                                           g.disabled
                                                 ? 'opacity-50 cursor-not-allowed'
                                                 : 'cursor-pointer hover:scale-[1.02] transition-transform active:scale-95'
-                                    " class="rounded-2xl bg-white/50 w-4/5 backdrop-blur shadow-xl p-4">
+                                    " class="rounded-2xl bg-white/50 w-full backdrop-blur shadow-xl p-4">
                               <div class="text-xl font-bold">{{ g.icon }} {{ g.name }}</div>
                               <div class="text-sm text-slate-700 mt-1">{{ g.desc }}</div>
                               <div class="text-xs mt-2 w-fit px-2 py-0.5 rounded-xl" :class="
@@ -110,7 +110,9 @@
                                     {{ g.status }}
                               </div>
                         </div>
+                        <div class="h-24"></div>
                   </div>
+
             </div>
 
             <!-- TIC TAC TOE VIEW -->
@@ -120,7 +122,7 @@
                   <span class="fa fa-caret-left"></span> Lobby
             </button>-->
 
-                  <p class="text-xl sm:text-2xl p-2 rounded-2xl w-full text-center bg-white/40">
+                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 font-bold shadow">
                         Christy's Tic Tac Toe
                   </p>
 
@@ -152,7 +154,7 @@
                   title="Back to lobby">
                   <span class="fa fa-caret-left"></span> Lobby
             </button>-->
-                  <p class="text-xl sm:text-2xl p-2 rounded-2xl w-full text-center bg-white/40">
+                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/90 text-white font-bold shadow">
                         Find My Pizza 🍕
                   </p>
 
@@ -181,7 +183,7 @@
                               <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1">
                                     My board ({{ mySlices }}/{{ pizza.slices }})
                               </p>
-                              <div class="grid grid-cols-5 gap-1 p-1 bg-white/30 rounded-xl w-4/5">
+                              <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
                                     <div v-for="(cell, i) in pizza.myBoard" :key="'m' + i" @click="placeCell(i)"
                                           class="aspect-square rounded-lg flex items-center justify-center text-xl"
                                           :class="myCellClass(i)">
@@ -207,7 +209,7 @@
                               <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1">
                                     {{ pizza.opponentName || "Opponent" }}'s board
                               </p>
-                              <div class="grid grid-cols-5 gap-1 p-1 bg-white/30 rounded-xl w-4/5">
+                              <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
                                     <div v-for="(cell, i) in pizza.oppGuesses" :key="'o' + i" @click="attackCell(i)"
                                           class="aspect-square rounded-lg flex items-center justify-center text-xl"
                                           :class="oppCellClass(i)">
@@ -237,7 +239,7 @@
                                     me
                               </p>
                         </div>
-                        <div class="flex-1 min-h-0 rounded-xl w-full overflow-y-scroll bg-white/40 my-1" id="display">
+                        <div class="flex-1 min-h-0 rounded-xl w-full overflow-y-scroll bg-neutral-400/40 my-1" id="display">
                         </div>
                         <div id="typingIndicator"
                               class="hidden px-2 py-1 text-xs italic text-black bg-yellow-200/80 w-fit rounded-lg mb-1">

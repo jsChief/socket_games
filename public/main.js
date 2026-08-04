@@ -418,14 +418,14 @@ connectSocket();
 
 socket.on("server-info", (message) => {
       serverMessageTone.play();
-      showMessage(message, "bg-blue-100 text-center text-blue-500 ", "server");
+      showMessage(message, "rounded-xl bg-blue-100 text-center text-blue-500 ", "server");
 });
 
 socket.on("server-warn", (message) => {
       serverMessageTone.play();
       showMessage(
             message,
-            "bg-yellow-100 text-center text-yellow-600 ",
+            "rounded-xl bg-yellow-100 text-center text-yellow-600 ",
             "server",
       );
 });
@@ -582,7 +582,7 @@ socket.on("pizza-waiting", (data) => {
 
 socket.on("user-message", (message) => {
       const messageData = addRecentOtherMessage(message);
-      showMessage(message, "bg-gray-200 ", "other", messageData);
+      showMessage(message, "rounded-r-xl rounded-bl-xl bg-gray-200 ", "other", messageData);
       if (!app.chatOpen) app.hasNewMessage = true;
       // Play the tone only if the user has interacted and the audio element exists
       messageTone.play();
@@ -624,34 +624,6 @@ socket.on("welcome-back", (name) => {
       serverMessageTone.play();
       showToast("Welcome back, " + name + "!", "success");
 });
-/*
-socket.on("p2-win", (message) => {
-      lose.play();
-      showMessage(
-            message,
-            "bg-transparent text-center text-green-600 text-3xl ",
-            "server",
-      );
-});
-
-socket.on("you-win", (message) => {
-      win.play();
-      showMessage(
-            message,
-            "bg-green-100 text-center text-green-600 text-3xl animate-pulse ",
-            "server",
-      );
-});
-*/
-
-// socket.on("draw-game", (message) => {
-//       serverMessageTone.play();
-//       showMessage(
-//             message,
-//             "bg-blue-100 text-center text-blue-600 text-3xl animate-pulse ",
-//             "server",
-//       );
-// });
 
 socket.on("click-btn", (x) => {
       sel("btn" + x.index).textContent = x.symbol;
@@ -681,7 +653,7 @@ socket.on("name-set", (data) => {
             "px-2 py-0.5 text-sm rounded-xl bg-green-600 text-white"; // Default class for p1
       showMessage(
             "Your name has been set to " + data.name,
-            "bg-yellow-100 text-center text-yellow-600 ",
+            "rounded-xl bg-yellow-100 text-center text-yellow-600 ",
             "server",
       );
       myName = data.name;
@@ -706,7 +678,7 @@ socket.on("p2-win", (message) => {
       clearTurnHighlight(); // Clear highlight on game end
       showMessage(
             message,
-            "bg-transparent text-center text-green-600 text-3xl ",
+            "rounded-xl bg-transparent text-center text-green-600 text-3xl ",
             "server",
       );
 });
@@ -716,7 +688,7 @@ socket.on("you-win", (message) => {
       clearTurnHighlight(); // Clear highlight on game end
       showMessage(
             message,
-            "bg-green-100 text-center text-green-600 text-3xl animate-pulse ",
+            "rounded-xl bg-green-100 text-center text-green-600 text-3xl animate-pulse ",
             "server",
       );
 });
@@ -726,7 +698,7 @@ socket.on("draw-game", (message) => {
       clearTurnHighlight(); // Clear highlight on game end
       showMessage(
             message,
-            "bg-blue-100 text-center text-blue-600 text-3xl animate-pulse ",
+            "rounded-xl bg-blue-100 text-center text-blue-600 text-3xl animate-pulse ",
             "server",
       );
 });
@@ -743,7 +715,7 @@ socket.on("set-turn", (message) => {
       sel("p1").classList.add("bg-yellow-300", "text-black", "font-bold"); // Highlight current player (p1)
       showMessage(
             message.text,
-            "bg-orange-600 text-center text-orange-100 ",
+            "rounded-xl bg-orange-600 text-center text-orange-100 ",
             "server",
       );
 });
@@ -752,7 +724,7 @@ socket.on("invalid-move", (message) => {
       serverMessageTone.play();
       showMessage(
             message,
-            "bg-yellow-200 text-center text-orange-700 ",
+            "rounded-xl bg-yellow-200 text-center text-orange-700 ",
             "server",
       );
       turn = true;
@@ -764,7 +736,7 @@ socket.on("p2-turn", (name) => {
       sel("p2").classList.add("bg-yellow-300", "text-black", "font-bold"); // Highlight opponent (p2)
       showMessage(
             name + "'s turn",
-            "bg-green-600 text-center text-green-100 ",
+            "rounded-xl bg-green-600 text-center text-green-100 ",
             "server",
       );
 });
@@ -879,7 +851,7 @@ function showMessage(text, custom, source, messageData) {
       let w = document.createElement("div");
       w.className = "min-w-20 flex flex-col items-" + pos;
       let k = document.createElement("div");
-      k.className = custom + "w-fit shadow rounded-xl px-2 py-1";
+      k.className = custom + "w-fit shadow px-2 py-1 max-w-[60vw]";
 
       const messageText = typeof text === "object" && text !== null ? normalizeText(text.text) : text;
       const replyText = typeof text === "object" && text !== null ? normalizeText(text.replyTo) : null;
@@ -932,15 +904,13 @@ function echo() {
 }
 
 function sendEmoji(emoji) {
-      // socket.emit("user-message", emoji);
-      // showMessage(emoji, "text-right bg-orange-200 ", "me");
       const payload = {
             text: emoji,
             replyTo: replyTarget ? replyTarget.text : null,
             replyToId: replyTarget ? replyTarget.id : null,
       };
       socket.emit("user-message", payload);
-      showMessage(payload, "text-right bg-orange-200 ", "me");
+      showMessage(payload, "rounded-l-xl rounded-br-xl text-right bg-orange-100 ", "me");
       clearReplyTarget();
       stopTyping();
 }
@@ -948,7 +918,6 @@ function sendEmoji(emoji) {
 function message() {
       if (input.value != "") {
             let splitMsg = input.value.split(" ");
-            //showMessage(splitMsg[0], "text-right bg-blue-200 ", "me");
             if (splitMsg[0] == "/name") {
                   socket.emit("set-name", {
                         name: splitMsg[1],
@@ -975,12 +944,10 @@ function message() {
                         replyToId: replyTarget ? replyTarget.id : null,
                   };
                   socket.emit("user-message", payload);
-                  showMessage(payload, "text-right bg-orange-200 ", "me");
+                  showMessage(payload, "rounded-l-xl rounded-br-xl bg-orange-100 ", "me");
                   clearReplyTarget();
                   stopTyping();
             }
             input.value = "";
       }
 }
-
-//-8152543478444379065 atios 1.21.4 initially, then updated to 1.21.8
