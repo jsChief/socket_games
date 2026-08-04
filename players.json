@@ -1,0 +1,88 @@
+[
+  {
+    "id": "1UDI0CFOXv-O9kZzAAAJ",
+    "name": "JamesO",
+    "turn": false,
+    "symbol": "x",
+    "persistentUserId": "eb231ef3-691a-448d-9bf1-1ece6f1f73fa"
+  },
+  {
+    "id": "o3Da51jrOChEQCwBAAAH",
+    "name": "Christy",
+    "turn": false,
+    "symbol": "o",
+    "persistentUserId": "9e73fb81-ba6c-4f12-af72-dd9b51807bf2"
+  },
+  {
+    "id": "p-W-MSPCf3ypF2JdAAAB",
+    "name": "integrated",
+    "symbol": "o",
+    "persistentUserId": "8df531e9-2ef5-4674-a241-b02d8ce94d99"
+  },
+  {
+    "id": "eJpzH9JvryD-XRHpAAAD",
+    "name": "JamesFul",
+    "symbol": "x",
+    "persistentUserId": "ee24eb3f-80df-4dfb-b214-b4e40a00357c"
+  },
+  {
+    "id": "359w9gMVc1qPbkz6AAAF",
+    "name": "JamesO",
+    "symbol": "x",
+    "persistentUserId": "7856e119-78b9-4125-b99e-134ddea0369d"
+  },
+  {
+    "id": "nfflfw9qeQMUArubAAAD",
+    "name": "Bob",
+    "symbol": "x",
+    "persistentUserId": "pizza-test-Bob"
+  },
+  {
+    "id": "_Ir1cKwYC6jqPYMVAAAC",
+    "name": "Alice",
+    "symbol": "o",
+    "persistentUserId": "pizza-test-Alice"
+  },
+  {
+    "id": "tvGceJq6dEooW2m3AAAC",
+    "name": "Alice",
+    "symbol": "o",
+    "persistentUserId": "pt-Alice"
+  },
+  {
+    "id": "p_UjZpiiC20RfGs2AAAD",
+    "name": "Bob",
+    "symbol": "x",
+    "persistentUserId": "pt-Bob"
+  },
+  {
+    "id": "jX3Pw4yu_rcPU5eaAAAD",
+    "name": "pc360",
+    "symbol": "o",
+    "persistentUserId": "4a7154c7-46e5-4092-8aed-371b354a185c"
+  },
+  {
+    "id": "gKbQZTpYdAgZYwjrAAAC",
+    "name": "Bob",
+    "symbol": "x",
+    "persistentUserId": "rematch-Bob"
+  },
+  {
+    "id": "AgLV6SWCfqViqcJGAAAD",
+    "name": "Alice",
+    "symbol": "o",
+    "persistentUserId": "rematch-Alice"
+  },
+  {
+    "id": "TPpDg1IW9ho2D58FAAAC",
+    "name": "Alice",
+    "symbol": "o",
+    "persistentUserId": "online-Alice"
+  },
+  {
+    "id": "3KQK1eSukaC_54mfAAAD",
+    "name": "Bob",
+    "symbol": "x",
+    "persistentUserId": "online-Bob"
+  }
+]

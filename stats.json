@@ -1,0 +1,103 @@
+{
+  "gamesPlayed": 9,
+  "players": {
+    "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "name": "JamesFul",
+      "symbol": "x"
+    },
+    "8df531e9-2ef5-4674-a241-b02d8ce94d99": {
+      "wins": 0,
+      "losses": 1,
+      "draws": 0,
+      "name": "integrated",
+      "symbol": "o"
+    },
+    "7856e119-78b9-4125-b99e-134ddea0369d": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "JamesO",
+      "symbol": "x"
+    },
+    "eb231ef3-691a-448d-9bf1-1ece6f1f73fa": {
+      "wins": 0,
+      "losses": 2,
+      "draws": 6,
+      "name": "JamesO",
+      "symbol": "x"
+    },
+    "9e73fb81-ba6c-4f12-af72-dd9b51807bf2": {
+      "wins": 1,
+      "losses": 0,
+      "draws": 6,
+      "name": "Christy",
+      "symbol": "o"
+    },
+    "pizza-test-Bob": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Bob",
+      "symbol": "x"
+    },
+    "pizza-test-Alice": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Alice",
+      "symbol": "o"
+    },
+    "pt-Alice": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Alice",
+      "symbol": "o"
+    },
+    "pt-Bob": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Bob",
+      "symbol": "x"
+    },
+    "4a7154c7-46e5-4092-8aed-371b354a185c": {
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "name": "pc360",
+      "symbol": "o"
+    },
+    "rematch-Bob": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Bob",
+      "symbol": "x"
+    },
+    "rematch-Alice": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Alice",
+      "symbol": "o"
+    },
+    "online-Alice": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Alice",
+      "symbol": "o"
+    },
+    "online-Bob": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Bob",
+      "symbol": "o"
+    }
+  }
+}
