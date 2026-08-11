@@ -11,7 +11,7 @@
             }
 
             @font-face {
-                  src: url(Sweet_Smile.ttf);
+                  src: url(assets/Sweet_Smile.ttf);
                   font-family: "SweetSmile";
             }
 
@@ -25,7 +25,7 @@
             }
 
             body {
-                  background-image: url(Textiles.png);
+                  background-image: url(assets/Textiles.png);
                   background-position: center;
                   background-size: cover;
                   background-repeat: no-repeat;
@@ -43,184 +43,29 @@
                   scrollbar-width: none;
             }
       </style>
-      <script src="TW4.js"></script>
+      <script src="src/TW4.js"></script>
       <link rel="stylesheet" href="all.css" />
-      <script defer src="socket.io.min.js"></script>
-      <script defer src="vue.js"></script>
-      <script defer src="main.js"></script>
+      <script src="src/socket.io.min.js"></script>
+      <script src="src/vue.js"></script>
+      
 </head>
 
 <body class="p-1 h-[90vh] w-screen bg-yellow-500/30 text-ss">
       <div id="app" class="h-full w-full">
+            <!-- AUTH VIEW -->
+            <auth-view ref="auth" v-show="view === 'auth'" @submit="onAuthSubmit"></auth-view>
+
             <!-- LOBBY VIEW -->
-            <div v-show="view === 'lobby'" class="overflow-y-scroll h-full no-scrollbar">
-
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 backdrop-blur">
-                        Games Lobby
-                  </p>
-
-                        <div class="flex flex-col items-center gap-1 rounded-2xl p-2 w-fit backdrop-blur shadow-xl">
-                              <p class="px-2 py-1 text-sm rounded-2xl bg-white/50 flex items-center">
-                                    <span class="font-bold">{{ myName || "no name yet, set your name" }}</span>
-				<span class="ml-2 inline-flex items-center gap-1 rounded-xl px-2 py-0.5 text-sm align-middle"
-                                    :class="connectionBadgeClass">
-                                    <span class="size-2 rounded-full" :class="connectionDotClass"></span>
-                                    {{ connectionStatusText }}
-                              </span>
-                              </p>
-                        </div>
-
-                  <div class="mt-5 rounded-2xl p-2 w-full bg-white/50 backdrop-blur shadow-xl max-h-20/100 overflow-y-scroll no-scrollbar">
-                        <p class="text-sm font-bold mb-1">
-                              Online Players ({{ onlinePlayers.length }})
-                        </p>
-                        <p v-if="onlinePlayers.length === 0" class="text-sm text-slate-500">
-                              No one is online right now.
-                        </p>
-                        <div v-else class="flex flex-col gap-1 max-h-40 overflow-y-auto">
-                              <div v-for="p in onlinePlayers" :key="p.id"
-                                    class="flex items-center gap-2 text-sm bg-white/40 rounded-xl px-2 py-1">
-                                    <span class="size-2 shrink-0 rounded-full bg-green-500"></span>
-                                    <span class="font-bold">{{ p.name }}</span>
-                                    <span class="text-xs text-slate-600">[{{ p.symbol }}]</span>
-                                    <span v-if="p.id === socketId" class="text-xs text-slate-500 ml-auto">
-                                          (you)
-                                    </span>
-                              </div>
-                        </div>
-                  </div>
-
-                  <div class="text-2xl rounded-xl mt-4 text-white bg-orange-600 p-2 w-fit font-bold text-center">
-                        Games
-                  </div>
-
-                  <div class="mt-1 p-1 grid grid-cols-1 sm:grid-cols-2 gap-3 h-60/100 rounded-xl overflow-y-scroll no-scrollbar">
-                        <div v-for="g in games" :key="g.id" @click="selectGame(g)" :class="
-                                          g.disabled
-                                                ? 'opacity-50 cursor-not-allowed'
-                                                : 'cursor-pointer hover:scale-[1.02] transition-transform active:scale-95'
-                                    " class="rounded-2xl bg-white/50 w-full backdrop-blur shadow-xl p-4">
-                              <div class="text-xl font-bold">{{ g.icon }} {{ g.name }}</div>
-                              <div class="text-sm text-slate-700 mt-1">{{ g.desc }}</div>
-                              <div class="text-xs mt-2 w-fit px-2 py-0.5 rounded-xl" :class="
-                                                g.disabled
-                                                      ? 'bg-yellow-500 text-yellow-100'
-                                                      : 'bg-green-600 text-white'
-                                          ">
-                                    {{ g.status }}
-                              </div>
-                        </div>
-                        <div class="h-24"></div>
-                  </div>
-
-            </div>
+            <lobby-view ref="lobby" v-show="view === 'lobby'" :my-name="myName" :connection-status="connectionStatus"
+                  :socket-id="socketId" @select-game="selectGame"></lobby-view>
 
             <!-- TIC TAC TOE VIEW -->
-            <div v-show="view === 'tictactoe'">
-                  <!--<button @click="backToLobby" class="shrink-0 px-3 py-2 rounded-2xl bg-white/80 shadow text-sm"
-                  title="Back to lobby">
-                  <span class="fa fa-caret-left"></span> Lobby
-            </button>-->
-
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 font-bold shadow">
-                        Christy's Tic Tac Toe
-                  </p>
-
-                  <!-- board -->
-                  <div
-                        class="w-full h-60 rounded p-4 grid grid-rows-3 shadow-xl mx-auto mt-2 font-bold text-4xl backdrop-blur-sm rounded-2xl p-2 text-white">
-                        <div class="bg-orange-600 rounded-t h-18 p-1 flex place-content-around items-center">
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn0" onclick="btn(0)"></button>
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn1" onclick="btn(1)"></button>
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn2" onclick="btn(2)"></button>
-                        </div>
-                        <div class="bg-orange-500 h-18 p-1 flex place-content-around items-center">
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn3" onclick="btn(3)"></button>
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn4" onclick="btn(4)"></button>
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn5" onclick="btn(5)"></button>
-                        </div>
-                        <div class="bg-orange-400 rounded-b h-18 p-1 flex place-content-around items-center">
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn6" onclick="btn(6)"></button>
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn7" onclick="btn(7)"></button>
-                              <button class="h-12 w-12 rounded shadow bg-black" id="btn8" onclick="btn(8)"></button>
-                        </div>
-                  </div>
-            </div>
+            <tictactoe-view ref="tt" v-show="view === 'tictactoe'"></tictactoe-view>
 
             <!-- PIZZA GAME VIEW -->
-            <div v-show="view === 'pizza'">
-                  <!--
-                  <button @click="backToLobby" class="shrink-0 px-3 py-2 rounded-2xl bg-white/80 shadow text-sm"
-                  title="Back to lobby">
-                  <span class="fa fa-caret-left"></span> Lobby
-            </button>-->
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/90 text-white font-bold shadow">
-                        Find My Pizza 🍕
-                  </p>
+            <pizza-view ref="pizza" v-show="view === 'pizza'"></pizza-view>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/50 backdrop-blur shadow-xl">
-                        <p class="text-center text-sm">{{ pizzaStatus }}</p>
-                        <p v-if="pizza.phase === 'placement'" class="text-center text-lg text-orange-600">
-                              Time left: {{ pizza.timer }}s
-                        </p>
-                        <div v-if="pizza.phase === 'over'" class="mt-2 flex justify-center">
-                              <button @click="requestRematch" :disabled="pizza.rematchRequested"
-                                    class="rounded-2xl py-2 px-6 bg-green-600 text-white text-sm" :class="
-                                                pizza.rematchRequested
-                                                      ? 'opacity-50'
-                                                      : ''
-                                          ">
-                                    {{ pizza.rematchRequested ? "Waiting for opponent..." : "Play again" }}
-                              </button>
-                        </div>
-                  </div>
-
-                  <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <!-- my board -->
-                        <div :style="{
-                                          order: pizza.phase === 'battle' ? 2 : 1,
-                                    }">
-                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1">
-                                    My board ({{ mySlices }}/{{ pizza.slices }})
-                              </p>
-                              <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
-                                    <div v-for="(cell, i) in pizza.myBoard" :key="'m' + i" @click="placeCell(i)"
-                                          class="aspect-square rounded-lg flex items-center justify-center text-xl"
-                                          :class="myCellClass(i)">
-                                          {{ myCellIcon(i) }}
-                                    </div>
-                              </div>
-                              <button v-if="
-                                                pizza.phase === 'placement' &&
-                                                !pizza.submitted
-                                          " @click="lockPlacement"
-                                    class="mt-2 w-full rounded-2xl py-2 bg-orange-600 text-white text-sm" :class="
-                                                mySlices === pizza.slices
-                                                      ? ''
-                                                      : 'opacity-50'
-                                          ">
-                                    Lock in placement
-                              </button>
-                        </div>
-                        <!-- opponent board -->
-                        <div :style="{
-                                          order: pizza.phase === 'battle' ? 1 : 2,
-                                    }">
-                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1">
-                                    {{ pizza.opponentName || "Opponent" }}'s board
-                              </p>
-                              <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
-                                    <div v-for="(cell, i) in pizza.oppGuesses" :key="'o' + i" @click="attackCell(i)"
-                                          class="aspect-square rounded-lg flex items-center justify-center text-xl"
-                                          :class="oppCellClass(i)">
-                                          {{ oppCellIcon(i) }}
-                                    </div>
-                              </div>
-                        </div>
-                  </div>
-            </div>
-
-            <!-- floating chat button -->
+            <!-- floating chat button (visible on all game pages) -->
             <button @click="openChat"
                   class="fixed bottom-4 right-4 z-40 size-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-600 shadow-xl text-2xl flex items-center justify-center"
                   title="Chat">
@@ -229,85 +74,27 @@
                         class="absolute -top-1 -right-1 size-3 rounded-full bg-red-500 ring ring-white"></span>
             </button>
 
-            <!-- chat overlay -->
-            <div id="chatOverlay" v-show="chatOpen"
-                  class="fixed inset-0 z-50 flex flex-col bg-white/20 backdrop-blur">
-                  <div class="w-full flex-1 flex flex-col min-h-0 bg-white/20 p-1">
-                        <div class="flex place-content-between items-center w-full bg-white/50 rounded-xl h-8 p-1">
-                              <p class="px-2 py-0.5 text-sm rounded-xl" id="p2">player 2</p>
-                              <p class="px-2 py-0.5 text-sm bg-orange-600 text-orange-100 rounded-xl" id="p1">
-                                    me
-                              </p>
-                        </div>
-                        <div class="flex-1 min-h-0 rounded-xl w-full overflow-y-scroll bg-neutral-400/40 my-1" id="display">
-                        </div>
-                        <div id="typingIndicator"
-                              class="hidden px-2 py-1 text-xs italic text-black bg-yellow-200/80 w-fit rounded-lg mb-1">
-                        </div>
-                        <div id="replyPreview"
-                              class="hidden mt-2 rounded-xl border border-slate-300 bg-white/80 backdrop-blur-sm p-2 text-sm text-slate-900">
-                        </div>
+            <!-- CHAT OVERLAY VIEW -->
+            <chat-view ref="chat" @new-message="hasNewMessage = true"></chat-view>
 
-                        <div class="h-fit rounded-2xl bg-white/50 p-1 backdrop-blur-sm">
-                              <!-- Quick Reactions Bar -->
-                              <div
-                                    class="flex place-content-between gap-4 p-1 overflow-x-auto no-scrollbar rounded-xl mb-1 text-xl">
-                                    <button onclick="sendEmoji('👍')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          👍
-                                    </button>
-                                    <button onclick="sendEmoji('❤️')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          ❤️
-                                    </button>
-                                    <button onclick="sendEmoji('😂')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          😂
-                                    </button>
-                                    <button onclick="sendEmoji('😮')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          😮
-                                    </button>
-                                    <button onclick="sendEmoji('😢')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          😢
-                                    </button>
-                                    <button onclick="sendEmoji('🔥')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          🔥
-                                    </button>
-                                    <button onclick="sendEmoji('👏')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          👏
-                                    </button>
-                                    <button onclick="sendEmoji('🎉')"
-                                          class="hover:scale-125 transition-transform active:scale-95">
-                                          🎉
-                                    </button>
-                              </div>
-
-                              <div class="h-fit w-full rounded-2xl flex items-center place-content-between">
-                                    <input placeholder="enter text..." type="text"
-                                          class="placeholder-gray-600 p-2 h-10 w-87/100 rounded-2xl border border-white/40 shadow"
-                                          id="in" />
-                                    <button
-                                          class="rounded-2xl p-2 shadow size-10 bg-gradient-to-br from-yellow-400 to-orange-600 fa fa-arrow-up text-xl"
-                                          onclick="message()"></button>
-                              </div>
-                        </div>
-                  </div>
-            </div>
-
-            <audio id="messageTone" src="/notify.mp3" preload="auto"></audio>
-            <audio id="serverMessageTone" src="/server_notify.mp3" preload="auto"></audio>
-            <audio id="win" src="/win_notify.mp3" preload="auto"></audio>
-            <audio id="lose" src="/lose_notify.mp3" preload="auto"></audio>
+            <audio id="messageTone" src="assets/notify.mp3" preload="auto"></audio>
+            <audio id="serverMessageTone" src="assets/server_notify.mp3" preload="auto"></audio>
+            <audio id="win" src="assets/win_notify.mp3" preload="auto"></audio>
+            <audio id="lose" src="assets/lose_notify.mp3" preload="auto"></audio>
       </div>
 
       <!-- popup notification container -->
       <div id="toastContainer"
             class="fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex w-full max-w-sm flex-col items-center gap-2 px-2 pointer-events-none">
       </div>
+
+            <script src="components/auth-view.js"></script>
+            <script src="components/lobby-view.js"></script>
+      <script src="components/tictactoe-view.js"></script>
+      <script src="components/pizza-view.js"></script>
+      <script src="components/chat-view.js"></script>
+
+      <script src="main.js"></script>
 </body>
 
 </html>

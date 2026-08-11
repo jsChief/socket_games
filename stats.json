@@ -98,6 +98,20 @@
       "draws": 0,
       "name": "Bob",
       "symbol": "o"
+    },
+    "d97e9895-ad6c-4578-8ae3-26d2e898965b": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "pc360",
+      "symbol": "o"
+    },
+    "ff62319f-1a1d-449f-ac8d-bd3727b42b48": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "James O",
+      "symbol": "x"
     }
   }
 }

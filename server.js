@@ -3,6 +3,10 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
+const crypto = require("crypto");
+const { promisify } = require("util");
+const scrypt = promisify(crypto.scrypt);
+const randomBytes = promisify(crypto.randomBytes);
 
 const app = express();
 // Create the unified HTTP server
@@ -14,6 +18,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:3000",
       "http://192.168.0.139:3000",
+      "http://192.168.0.180:3000", //wp-360
       "https://fond-dory-suitable.ngrok-free.app",
     ],
     methods: ["GET", "POST"],
@@ -24,14 +29,16 @@ const io = new Server(server, {
 // (Point this to your web page build folder, e.g., 'public' or 'dist')
 app.use(express.static(path.join(__dirname, "public")));
 
-const playersFilePath = path.join(__dirname, "players.json");
-// `storedPlayers` holds persisted player records loaded from disk on start.
 // `players` holds the currently active (connected) players for this server run.
-var storedPlayers = [];
 var players = [];
 const statsFilePath = path.join(__dirname, "stats.json");
 // Stats structure: { gamesPlayed: number, players: { [persistentUserId]: { wins, losses, draws, name, symbol } } }
 var stats = { gamesPlayed: 0, players: {} };
+const accountsFilePath = path.join(__dirname, "accounts.json");
+// Simple username/password accounts for a small circle of friends.
+// accounts.accounts[usernameLower] = { username, salt, hash, persistentUserId }
+// accounts.tokens[token] = usernameLower  (auto-login "remember me" tokens)
+var accounts = { accounts: {}, tokens: {} };
 var table = ["", "", "", "", "", "", "", "", ""];
 var virtualTable = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
 var validCombo = [
@@ -65,25 +72,6 @@ var pizza = {
   placementStart: 0,
 };
 
-// Function to load persisted players from players.json into `storedPlayers`.
-const loadPlayers = () => {
-  try {
-    const dataBuffer = fs.readFileSync(playersFilePath);
-    const dataJSON = dataBuffer.toString();
-    storedPlayers = JSON.parse(dataJSON);
-    console.log("Persisted players loaded from file.");
-  } catch (e) {
-    if (e.code === "ENOENT") {
-      console.log(
-        "players.json not found, starting with empty persisted players array.",
-      );
-    } else {
-      console.error("Error loading players from file:", e);
-    }
-    storedPlayers = []; // Start with an empty array if file doesn't exist or is invalid
-  }
-};
-
 // Load persisted stats from stats.json into `stats`.
 const loadStats = () => {
   try {
@@ -109,17 +97,6 @@ const loadStats = () => {
   }
 };
 
-// Function to save persisted players (`storedPlayers`) to players.json
-const savePlayers = () => {
-  try {
-    const dataJSON = JSON.stringify(storedPlayers, null, 2); // Pretty print JSON
-    fs.writeFileSync(playersFilePath, dataJSON);
-    console.log("Persisted players saved to file.");
-  } catch (e) {
-    console.error("Error saving players to file:", e);
-  }
-};
-
 // Save stats to stats.json
 const saveStats = () => {
   try {
@@ -131,14 +108,199 @@ const saveStats = () => {
   }
 };
 
-// Load players data when the server starts
-loadPlayers();
+// Load accounts (and login tokens) from accounts.json into `accounts`.
+const loadAccounts = () => {
+  try {
+    const dataBuffer = fs.readFileSync(accountsFilePath);
+    const parsed = JSON.parse(dataBuffer.toString());
+    accounts = {
+      accounts:
+        parsed && typeof parsed.accounts === "object" && parsed.accounts !== null
+          ? parsed.accounts
+          : {},
+      tokens:
+        parsed && typeof parsed.tokens === "object" && parsed.tokens !== null
+          ? parsed.tokens
+          : {},
+    };
+    console.log("Accounts loaded from file.");
+  } catch (e) {
+    if (e.code === "ENOENT") {
+      console.log("accounts.json not found, starting with empty accounts.");
+    } else {
+      console.error("Error loading accounts from file:", e);
+    }
+    accounts = { accounts: {}, tokens: {} };
+  }
+};
+
+// Save accounts to accounts.json
+const saveAccounts = () => {
+  try {
+    const dataJSON = JSON.stringify(accounts, null, 2);
+    fs.writeFileSync(accountsFilePath, dataJSON);
+    console.log("Accounts saved to file.");
+  } catch (e) {
+    console.error("Error saving accounts to file:", e);
+  }
+};
+
+// Hash a password with a random salt using scrypt.
+async function hashPassword(password) {
+  const salt = (await randomBytes(16)).toString("hex");
+  const hash = (await scrypt(password, salt, 64)).toString("hex");
+  return { salt, hash };
+}
+
+// Verify a plaintext password against the stored salt + hash.
+async function verifyPassword(password, salt, hash) {
+  const candidate = (await scrypt(password, salt, 64)).toString("hex");
+  return candidate === hash;
+}
+
+// Generate a random login token.
+function generateToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+// Load data when the server starts
 loadStats();
+loadAccounts();
+
+// Connect an authenticated/known player to the game. Used by auth-connect,
+// register, login and player-initial-connect (legacy /name flow).
+function connectPlayer(socket, data) {
+  const { persistentUserId, name: clientName } = data; // Get name from client as well, it might be stored locally
+  if (!persistentUserId) return;
+  console.log(
+    `Initial connect from persistentUserId: ${persistentUserId}, clientName: ${clientName}`,
+  );
+
+  // Check if the player is already active in this server run
+  let activeIndex = players.findIndex(
+    (player) => player.persistentUserId === persistentUserId,
+  );
+
+  if (activeIndex !== -1) {
+    // Active player exists (reconnection in same run), update socket id and name
+    let existingPlayer = players[activeIndex];
+    existingPlayer.id = socket.id;
+    existingPlayer.online = true;
+    if (clientName && existingPlayer.name !== clientName) {
+      existingPlayer.name = clientName;
+    }
+
+    socket.emit("welcome-back", existingPlayer.name);
+    socket.emit("set-table", table);
+
+    if (players.length > 1) {
+      socket.broadcast.emit("player-reconnect", existingPlayer.name);
+    }
+
+    if (gameOn) {
+      const currentTurnPlayer = players[currentPlayer];
+      if (
+        currentTurnPlayer &&
+        currentTurnPlayer.persistentUserId === existingPlayer.persistentUserId
+      ) {
+        socket.emit("set-turn", {
+          symbol: existingPlayer.symbol,
+          text: "Your turn",
+        });
+      } else {
+        const otherPlayer = players.find(
+          (p) => p.persistentUserId !== existingPlayer.persistentUserId,
+        );
+        if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
+      }
+    }
+
+    if (players.length === 2 && !gameOn) maybeStartSelectedGame();
+  } else {
+    // Not active in this run — treat as a fresh join. A returning registered
+    // player gets a freshly assigned symbol (opposite of the current player).
+    addNewPlayer(socket, clientName || "Player", persistentUserId);
+  }
+
+  // Resync an active pizza game for a reconnecting player
+  const idx = players.findIndex(
+    (p) => p.persistentUserId === persistentUserId,
+  );
+  if (idx !== -1 && pizza.active) resyncPizza(socket, idx);
+
+  // Let every connected client see the updated online players list
+  io.emit("online-players", getOnlinePlayers());
+}
+
+// Register a brand new player into the game (used by set-name and connectPlayer).
+function addNewPlayer(socket, name, persistentUserId) {
+  if (players.length >= 2) {
+    socket.emit("server-warn", "Game is full. Please wait for a spot to open.");
+    return false;
+  }
+
+  let assignedSymbol;
+  if (players.length === 0) {
+    r = Math.floor(Math.random() * 2);
+    assignedSymbol = r === 0 ? "x" : "o";
+  } else {
+    // Assign the opposite symbol to the first player
+    assignedSymbol = players[0].symbol === "x" ? "o" : "x";
+  }
+
+  var newPlayer = {
+    id: socket.id,
+    name,
+    turn: false,
+    symbol: assignedSymbol,
+    persistentUserId, // Store the persistent ID
+    game: null, // Selected game (tictactoe | pizza)
+    online: true,
+  };
+  console.log(newPlayer);
+  socket.emit("name-set", { name, symbol: assignedSymbol });
+  socket.emit("set-table", table); // Send current table state to the new player
+
+  players.push(newPlayer);
+  io.emit("online-players", getOnlinePlayers());
+
+  // Ensure a stats entry exists for this player
+  if (!stats.players[persistentUserId]) {
+    stats.players[persistentUserId] = {
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      name,
+      symbol: assignedSymbol,
+    };
+    saveStats();
+  }
+
+  if (players.length < 2) {
+    socket.emit("server-info", "waiting for player 2...");
+  }
+
+  if (players.length === 2) {
+    socket.emit(
+      "server-info",
+      "Player 2 joined! Select a game from the lobby to start.",
+    );
+    const otherPlayer = players.find((p) => p.id !== socket.id);
+    if (otherPlayer) {
+      io.to(otherPlayer.id).emit(
+        "p2-join",
+        newPlayer.name + " joined! Select a game from the lobby to start.",
+      );
+    }
+    maybeStartSelectedGame();
+  }
+  return true;
+}
 
 io.on("connection", (socket) => {
   socket.emit("join-message", "connected to server ✅");
-  // Initially, we don't know if they are a new or returning user,
-  // the client will send persistentUserId via 'player-initial-connect'
+  // The client sends its stored login token via 'auth-connect'
+  // (or falls back to 'player-initial-connect' for the legacy /name flow)
   socket.emit(
     "server-info",
     "Please wait while we set things up, or use '/name <your name>' if you are new!",
@@ -146,130 +308,98 @@ io.on("connection", (socket) => {
   console.log(socket.id);
 
   socket.on("player-initial-connect", (data) => {
-    const { persistentUserId, name: clientName } = data; // Get name from client as well, it might be stored locally
-    console.log(
-      `Initial connect from persistentUserId: ${persistentUserId}, clientName: ${clientName}`,
-    );
+    connectPlayer(socket, data);
+  });
 
-    // Check if the player is already active in this server run
-    let activeIndex = players.findIndex(
-      (player) => player.persistentUserId === persistentUserId,
-    );
-
-    if (activeIndex !== -1) {
-      // Active player exists (reconnection in same run), update socket id and name
-      let existingPlayer = players[activeIndex];
-      existingPlayer.id = socket.id;
-      existingPlayer.online = true;
-      if (clientName && existingPlayer.name !== clientName) {
-        existingPlayer.name = clientName;
-      }
-
-      // Also update persisted record if present
-      let storedIndex = storedPlayers.findIndex(
-        (p) => p.persistentUserId === persistentUserId,
-      );
-      if (storedIndex !== -1) {
-        storedPlayers[storedIndex].id = socket.id;
-        if (clientName) storedPlayers[storedIndex].name = existingPlayer.name;
-        savePlayers();
-      }
-
-      socket.emit("welcome-back", existingPlayer.name);
-      socket.emit("set-table", table);
-
-      if (players.length > 1) {
-        socket.broadcast.emit("player-reconnect", existingPlayer.name);
-      }
-
-      if (gameOn) {
-        const currentTurnPlayer = players[currentPlayer];
-        if (
-          currentTurnPlayer &&
-          currentTurnPlayer.persistentUserId === existingPlayer.persistentUserId
-        ) {
-          socket.emit("set-turn", {
-            symbol: existingPlayer.symbol,
-            text: "Your turn",
-          });
-        } else {
-          const otherPlayer = players.find(
-            (p) => p.persistentUserId !== existingPlayer.persistentUserId,
-          );
-          if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
-        }
-      }
-
-      if (players.length === 2 && !gameOn) maybeStartSelectedGame();
+  // --- Auth flow -----------------------------------------------------------
+  // The client sends its stored login token on connect. If valid, we log them
+  // in automatically and connect them to the game. Otherwise we ask them to
+  // log in or register via the auth screen.
+  socket.on("auth-connect", (data) => {
+    const token = data && data.token;
+    const key = token && accounts.tokens[token];
+    if (key && accounts.accounts[key]) {
+      const acc = accounts.accounts[key];
+      socket.emit("auth-success", {
+        token,
+        username: acc.username,
+        persistentUserId: acc.persistentUserId,
+      });
+      connectPlayer(socket, {
+        persistentUserId: acc.persistentUserId,
+        name: acc.username,
+      });
     } else {
-      // Not active in this run; check persisted records
-      let storedIndex = storedPlayers.findIndex(
-        (p) => p.persistentUserId === persistentUserId,
-      );
-      if (storedIndex !== -1) {
-        // Found a persisted player; recreate their active record and push into `players`
-        const stored = storedPlayers[storedIndex];
-        const activePlayer = {
-          id: socket.id,
-          name: stored.name,
-          turn: false,
-          symbol: stored.symbol,
-          persistentUserId: stored.persistentUserId,
-          online: true,
-        };
-        players.push(activePlayer);
+      socket.emit("auth-required", {
+        message: "Please log in or create an account.",
+      });
+    }
+  });
 
-        // Update persisted id and save
-        storedPlayers[storedIndex].id = socket.id;
-        savePlayers();
+  socket.on("register", async (data) => {
+    const username = ((data && data.username) || "").trim();
+    const password = (data && data.password) || "";
+    const persistentUserId =
+      (data && data.persistentUserId) || crypto.randomUUID();
 
-        socket.emit("welcome-back", stored.name);
-        socket.emit("set-table", table);
-
-        if (players.length > 1) {
-          socket.broadcast.emit("player-reconnect", stored.name);
-        }
-
-        if (gameOn) {
-          const currentTurnPlayer = players[currentPlayer];
-          if (
-            currentTurnPlayer &&
-            currentTurnPlayer.persistentUserId === stored.persistentUserId
-          ) {
-            socket.emit("set-turn", {
-              symbol: stored.symbol,
-              text: "Your turn",
-            });
-          } else {
-            const otherPlayer = players.find(
-              (p) => p.persistentUserId !== stored.persistentUserId,
-            );
-            if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
-          }
-        }
-
-        if (players.length === 2 && !gameOn) maybeStartSelectedGame();
-      } else {
-        // New persistent user connecting, they still need to use /name
-        socket.emit(
-          "server-info",
-          "Welcome, new player! Please use '/name <your name>' to join the game.",
-        );
-      }
+    if (username.length < 2 || username.length > 20) {
+      socket.emit("auth-error", "Username must be 2-20 characters.");
+      return;
+    }
+    if (password.length < 4) {
+      socket.emit("auth-error", "Password must be at least 4 characters.");
+      return;
+    }
+    const key = username.toLowerCase();
+    if (accounts.accounts[key]) {
+      socket.emit("auth-error", "That username is already taken.");
+      return;
     }
 
-    // Resync an active pizza game for a reconnecting player
-    const idx = players.findIndex(
-      (p) => p.persistentUserId === persistentUserId,
-    );
-    if (idx !== -1 && pizza.active) resyncPizza(socket, idx);
+    const { salt, hash } = await hashPassword(password);
+    accounts.accounts[key] = { username, salt, hash, persistentUserId };
+    const token = generateToken();
+    accounts.tokens[token] = key;
+    saveAccounts();
 
-    // Let every connected client see the updated online players list
-    io.emit("online-players", getOnlinePlayers());
+    socket.emit("auth-success", { token, username, persistentUserId });
+    connectPlayer(socket, { persistentUserId, name: username });
+  });
+
+  socket.on("login", async (data) => {
+    const username = ((data && data.username) || "").trim();
+    const password = (data && data.password) || "";
+    const key = username.toLowerCase();
+    const acc = accounts.accounts[key];
+    if (!acc || !(await verifyPassword(password, acc.salt, acc.hash))) {
+      socket.emit("auth-error", "Wrong username or password.");
+      return;
+    }
+
+    const token = generateToken();
+    accounts.tokens[token] = key;
+    saveAccounts();
+
+    socket.emit("auth-success", {
+      token,
+      username: acc.username,
+      persistentUserId: acc.persistentUserId,
+    });
+    connectPlayer(socket, {
+      persistentUserId: acc.persistentUserId,
+      name: acc.username,
+    });
   });
 
   socket.on("set-name", (data) => {
     const { name, persistentUserId } = data;
+    if (!name || !name.trim()) {
+      socket.emit(
+        "server-warn",
+        "Please provide a name with /name <your name>",
+      );
+      return;
+    }
 
     // Check if a player with this persistent ID already exists
     let existingPlayerIndex = players.findIndex(
@@ -285,19 +415,11 @@ io.on("connection", (socket) => {
       } else {
         // Player exists and is not in game, allow name change
         existingPlayer.name = name;
-        // Update persisted record if present
-        let storedIndex = storedPlayers.findIndex(
-          (p) => p.persistentUserId === persistentUserId,
-        );
-        if (storedIndex !== -1) {
-          storedPlayers[storedIndex].name = name;
-        }
         // Update stats name if present
         if (stats.players[persistentUserId]) {
           stats.players[persistentUserId].name = name;
           saveStats();
         }
-        savePlayers(); // Save the updated persisted players
         socket.emit("server-info", "Your name has been updated to " + name);
         socket.emit("name-set", {
           name,
@@ -311,87 +433,7 @@ io.on("connection", (socket) => {
       }
     } else {
       // This is a new player trying to set a name for the first time
-      if (players.length >= 2) {
-        socket.emit(
-          "server-warn",
-          "Game is full. Please wait for a spot to open.",
-        );
-        return;
-      }
-
-      let assignedSymbol;
-      if (players.length === 0) {
-        r = Math.floor(Math.random() * 2);
-        assignedSymbol = r === 0 ? "x" : "o";
-      } else {
-        // Assign the opposite symbol to the first player
-        assignedSymbol = players[0].symbol === "x" ? "o" : "x";
-      }
-
-      var newPlayer = {
-        id: socket.id,
-        name,
-        turn: false,
-        symbol: assignedSymbol,
-        persistentUserId, // Store the persistent ID
-        game: null, // Selected game (tictactoe | pizza)
-        online: true,
-      };
-      console.log(newPlayer);
-      socket.emit("name-set", { name, symbol: assignedSymbol });
-      socket.emit("set-table", table); // Send current table state to the new player
-
-      players.push(newPlayer);
-      io.emit("online-players", getOnlinePlayers());
-
-      // Persist the new player into storedPlayers and save
-      let storedIndex = storedPlayers.findIndex(
-        (p) => p.persistentUserId === persistentUserId,
-      );
-      if (storedIndex === -1) {
-        storedPlayers.push({
-          id: socket.id,
-          name,
-          symbol: assignedSymbol,
-          persistentUserId,
-        });
-      } else {
-        storedPlayers[storedIndex].id = socket.id;
-        storedPlayers[storedIndex].name = name;
-        storedPlayers[storedIndex].symbol = assignedSymbol;
-      }
-      savePlayers(); // Save the new persisted player
-
-      // Ensure a stats entry exists for this player
-      if (!stats.players[persistentUserId]) {
-        stats.players[persistentUserId] = {
-          wins: 0,
-          losses: 0,
-          draws: 0,
-          name,
-          symbol: assignedSymbol,
-        };
-        saveStats();
-      }
-
-      if (players.length < 2) {
-        socket.emit("server-info", "waiting for player 2...");
-      }
-
-      if (players.length === 2) {
-        socket.emit(
-          "server-info",
-          "Player 2 joined! Select a game from the lobby to start.",
-        );
-        const otherPlayer = players.find((p) => p.id !== socket.id);
-        if (otherPlayer) {
-          io.to(otherPlayer.id).emit(
-            "p2-join",
-            newPlayer.name + " joined! Select a game from the lobby to start.",
-          );
-        }
-        maybeStartSelectedGame();
-      }
+      addNewPlayer(socket, name.trim(), persistentUserId);
     }
   });
 
