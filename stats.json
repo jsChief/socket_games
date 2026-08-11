@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 9,
+  "gamesPlayed": 10,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -101,13 +101,13 @@
     },
     "d97e9895-ad6c-4578-8ae3-26d2e898965b": {
       "wins": 0,
-      "losses": 0,
+      "losses": 1,
       "draws": 0,
       "name": "pc360",
       "symbol": "o"
     },
     "ff62319f-1a1d-449f-ac8d-bd3727b42b48": {
-      "wins": 0,
+      "wins": 1,
       "losses": 0,
       "draws": 0,
       "name": "James O",

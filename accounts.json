@@ -1,0 +1,20 @@
+{
+  "accounts": {
+    "james o": {
+      "username": "James O",
+      "salt": "324d1110b22aaeb799a33d41356093c3",
+      "hash": "8392f8d942a0f3ecede1d8a24eaaa09c276deb8921d8d29da4afcf800cb830c75d733def1d1944adcf66013680240768adb4bb961a8be27507453539846fa48d",
+      "persistentUserId": "ff62319f-1a1d-449f-ac8d-bd3727b42b48"
+    },
+    "pc360": {
+      "username": "pc360",
+      "salt": "bb8d3778adc61a9f66919ef4d43a23e5",
+      "hash": "1fb261cf09bdd3b0ee0812ef1a289d9026e851401d80decac7d6931ae1dc5cf6a4d03ac2a16976880c7030ef0eb2d553e6f6c0d35dea21a001c90aa7bb1c7450",
+      "persistentUserId": "d97e9895-ad6c-4578-8ae3-26d2e898965b"
+    }
+  },
+  "tokens": {
+    "282cd50d5c12e8f2a43f905656ad13cddfb2782f9103af6800ca187129e0c01a": "james o",
+    "88b306557b0e8377b3e4f386c97efbe2d3da77fe94b5644cb86479196f6fefcd": "pc360"
+  }
+}

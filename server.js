@@ -232,6 +232,16 @@ function connectPlayer(socket, data) {
   io.emit("online-players", getOnlinePlayers());
 }
 
+// Temporarily assign a tic-tac-toe symbol when a player picks that game.
+// The other seated player (if any) gets the opposite symbol; otherwise random.
+function assignSymbolFor(index) {
+  const other = players[1 - index];
+  if (other && other.symbol) {
+    return other.symbol === "x" ? "o" : "x";
+  }
+  return Math.random() < 0.5 ? "x" : "o";
+}
+
 // Register a brand new player into the game (used by set-name and connectPlayer).
 function addNewPlayer(socket, name, persistentUserId) {
   if (players.length >= 2) {
@@ -239,26 +249,16 @@ function addNewPlayer(socket, name, persistentUserId) {
     return false;
   }
 
-  let assignedSymbol;
-  if (players.length === 0) {
-    r = Math.floor(Math.random() * 2);
-    assignedSymbol = r === 0 ? "x" : "o";
-  } else {
-    // Assign the opposite symbol to the first player
-    assignedSymbol = players[0].symbol === "x" ? "o" : "x";
-  }
-
   var newPlayer = {
     id: socket.id,
     name,
-    turn: false,
-    symbol: assignedSymbol,
+    symbol: null, // Only assigned temporarily when the player picks tic tac toe
     persistentUserId, // Store the persistent ID
     game: null, // Selected game (tictactoe | pizza)
     online: true,
   };
   console.log(newPlayer);
-  socket.emit("name-set", { name, symbol: assignedSymbol });
+  socket.emit("name-set", { name });
   socket.emit("set-table", table); // Send current table state to the new player
 
   players.push(newPlayer);
@@ -271,7 +271,6 @@ function addNewPlayer(socket, name, persistentUserId) {
       losses: 0,
       draws: 0,
       name,
-      symbol: assignedSymbol,
     };
     saveStats();
   }
@@ -424,10 +423,13 @@ io.on("connection", (socket) => {
         socket.emit("name-set", {
           name,
           symbol: existingPlayer.symbol,
-        }); // Re-send symbol with updated name
+        }); // Re-send symbol with updated name (may be null outside a game)
+        const symbolTag = existingPlayer.symbol
+          ? ` (${existingPlayer.symbol})`
+          : "";
         socket.broadcast.emit(
           "server-info",
-          `Player ${existingPlayer.symbol} is now known as ${name}.`,
+          `Player${symbolTag} is now known as ${name}.`,
         );
         io.emit("online-players", getOnlinePlayers());
       }
@@ -529,6 +531,12 @@ io.on("connection", (socket) => {
       return;
     }
     players[index].game = gameId;
+    if (gameId === "tictactoe") {
+      // Symbols only exist temporarily while playing tic tac toe
+      players[index].symbol = assignSymbolFor(index);
+    } else {
+      players[index].symbol = null;
+    }
     const otherPlayer = players.find((p) => p.id !== socket.id);
     if (otherPlayer) {
       socket.emit(
@@ -547,6 +555,7 @@ io.on("connection", (socket) => {
     const index = getIndex(socket.id);
     if (index === -1) return;
     players[index].game = null;
+    players[index].symbol = null;
     const other = players[1 - index];
     if (gameOn) {
       gameOn = false;
@@ -795,7 +804,6 @@ function getOnlinePlayers() {
     .map((p) => ({
       id: p.id,
       name: p.name,
-      symbol: p.symbol,
       game: p.game,
     }));
 }

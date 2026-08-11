@@ -41,3 +41,31 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
 ## 5. Customization
 
 *   **Theme Selection:** Allow players to choose different visual themes for the game board and UI.
+
+## 6. Game Rooms (next up)
+
+Currently the whole app is a single 2-player table: two players join, pick a game, and play. Game rooms would let several players be online at once while playing in separate, independent games.
+
+*   **Room creation & joining:**
+    *   A player creates a room → gets a short join code (e.g., 4-6 chars) and/or a URL like `#/room/ABCD`.
+    *   Friends join by entering the code or opening the link. Rooms are private by default.
+    *   Room list tab in the lobby (public rooms) + "create room" / "join with code" buttons.
+*   **Room lifecycle:**
+    *   Rooms exist server-side (in-memory `rooms` map); owner can close the room.
+    *   Empty rooms auto-expire after a timeout.
+    *   Server restart clears rooms (they're ephemeral).
+*   **Per-room game state:**
+    *   Each room gets its own `table`, `gameOn`, `currentPlayer`, `pizza` state, and 2 `players` — currently these are all global (single shared board).
+    *   All game socket events (`btn-pos`, `select-game`, `leave-game`, pizza events, reset, rematch) need to be scoped to the sender's room.
+*   **Refactor impact:**
+    *   Extract the current single-game logic into a `Room` object/class so each room has its own copy.
+    *   `players` array stays global (all connected users), but each room references its two seated players.
+    *   Chat is already global — decide if it should be room-scoped or stay global.
+*   **Seating & joining:**
+    *   Rooms are limited to 2 seated players (+ optional spectators later).
+    *   Host decides game (or both pick). Guest's room shows the same lobby/select flow, scoped to that room.
+    *   Reconnection: reconnect to your room via the token/`persistentUserId` — restore which room you were in.
+*   **Nice-to-haves (later):**
+    *   Spectators in a room (watching the live board).
+    *   Room settings (e.g., which games enabled, turn timer).
+    *   Invite links that auto-register/login the invited friend.

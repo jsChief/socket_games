@@ -139,7 +139,6 @@ Vue.component("lobby-view", {
                                     class="flex items-center gap-2 text-sm bg-white/40 rounded-xl px-2 py-1">
                                     <span class="size-2 shrink-0 rounded-full bg-green-500"></span>
                                     <span class="font-bold">{{ p.name }}</span>
-                                    <span class="text-xs text-slate-600">[{{ p.symbol }}]</span>
                                     <span v-if="p.id === socketId" class="text-xs text-slate-500 ml-auto">
                                           (you)
                                     </span>
