@@ -42,7 +42,7 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
 
 *   **Theme Selection:** Allow players to choose different visual themes for the game board and UI.
 
-## 6. Game Rooms (next up)
+## 6. Game Rooms (implemented ✅)
 
 Currently the whole app is a single 2-player table: two players join, pick a game, and play. Game rooms would let several players be online at once while playing in separate, independent games.
 
@@ -50,6 +50,10 @@ Currently the whole app is a single 2-player table: two players join, pick a gam
     *   A player creates a room → gets a short join code (e.g., 4-6 chars) and/or a URL like `#/room/ABCD`.
     *   Friends join by entering the code or opening the link. Rooms are private by default.
     *   Room list tab in the lobby (public rooms) + "create room" / "join with code" buttons.
+
+> **Status:** DONE. Players create a 4-char private room from the lobby and friends
+> join via the code (see `room-view` + lobby controls). A public room list / tab and
+> `#/room/CODE` share links are future enhancements.
 *   **Room lifecycle:**
     *   Rooms exist server-side (in-memory `rooms` map); owner can close the room.
     *   Empty rooms auto-expire after a timeout.

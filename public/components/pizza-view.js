@@ -234,12 +234,22 @@ Vue.component("pizza-view", {
                   this.status = "Waiting for opponent to rematch...";
                   socket.emit("pizza-rematch");
             },
+            leaveRoom() {
+                  this.$emit("leave-room");
+            },
       },
       template: `
             <div>
                   <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/90 text-white font-bold shadow">
                         Find My Pizza 🍕
                   </p>
+
+                  <div class="mt-2 flex gap-2 justify-center">
+                        <button @click="leaveRoom"
+                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
+                              Leave room
+                        </button>
+                  </div>
 
                   <div class="mt-2 rounded-2xl p-2 bg-white/50 backdrop-blur shadow-xl">
                         <p class="text-center text-sm">{{ pizzaStatus }}</p>

@@ -7,80 +7,8 @@ Vue.component("lobby-view", {
       data() {
             return {
                   onlinePlayers: [],
-                  games: [
-                        {
-                              id: "tictactoe",
-                              icon: "⭕",
-                              name: "Tic Tac Toe",
-                              desc: "Classic 2-player Xs and Os.",
-                              status: "Available",
-                              disabled: false,
-                        },
-                        {
-                              id: "pizza",
-                              icon: "🍕",
-                              name: "Find My Pizza",
-                              desc: "Hide 5 slices in your 20 cells, then hunt your opponent's!",
-                              status: "Available",
-                              disabled: false,
-                        },
-                        {
-                              id: "checkers",
-                              icon: "🎯",
-                              name: "Checkers",
-                              desc: "Coming soon.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                        {
-                              id: "snake",
-                              icon: "🐍",
-                              name: "Snake",
-                              desc: "Coming soon.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                        {
-                              id: "memory",
-                              icon: "🃏",
-                              name: "Memory Match",
-                              desc: "Coming soon.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                        {
-                              id: "connect4",
-                              icon: "🔴",
-                              name: "Connect 4",
-                              desc: "Drop discs and line up 4 in a row.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                        {
-                              id: "battleship",
-                              icon: "🚢",
-                              name: "Battleship",
-                              desc: "Hide your fleet and sink your opponent's ships.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                        {
-                              id: "rps",
-                              icon: "✊",
-                              name: "Rock Paper Scissors",
-                              desc: "Best of 3 classic showdown.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                        {
-                              id: "reversi",
-                              icon: "⚫",
-                              name: "Reversi",
-                              desc: "Flip pieces to claim the most of the board.",
-                              status: "Coming soon",
-                              disabled: true,
-                        },
-                  ],
+                  joinCode: "",
+                  busy: false,
             };
       },
       computed: {
@@ -109,6 +37,19 @@ Vue.component("lobby-view", {
             setOnlinePlayers(list) {
                   this.onlinePlayers = Array.isArray(list) ? list : [];
             },
+            createRoom() {
+                  if (this.busy) return;
+                  this.busy = true;
+                  socket.emit("create-room");
+                  setTimeout(() => {
+                        this.busy = false;
+                  }, 800);
+            },
+            joinRoom() {
+                  const code = this.joinCode.trim();
+                  if (!code) return;
+                  socket.emit("join-room", { code });
+            },
       },
       template: `
             <div class="overflow-y-scroll h-full no-scrollbar">
@@ -127,6 +68,30 @@ Vue.component("lobby-view", {
                         </p>
                   </div>
 
+                  <div class="mt-3 rounded-2xl p-3 w-full bg-white/50 backdrop-blur shadow-xl">
+                        <p class="text-sm font-bold">Play with friends</p>
+                        <div class="mt-2 flex gap-2">
+                              <button @click="createRoom" :disabled="busy || connectionStatus !== 'connected'"
+                                    class="flex-1 rounded-2xl py-2 bg-gradient-to-br from-yellow-400 to-orange-600 text-white font-bold shadow"
+                                    :class="busy || connectionStatus !== 'connected' ? 'opacity-60' : ''">
+                                    Create room
+                              </button>
+                        </div>
+                        <div class="mt-2 flex gap-2">
+                              <input v-model="joinCode" @keyup.enter="joinRoom" type="text" placeholder="Enter room code"
+                                    class="flex-1 p-2 h-10 rounded-2xl border border-white/40 bg-white/70 shadow uppercase tracking-widest"
+                                    maxlength="6" />
+                              <button @click="joinRoom"
+                                    class="rounded-2xl px-4 py-2 bg-orange-600 text-white font-bold shadow"
+                                    :class="connectionStatus !== 'connected' ? 'opacity-60' : ''">
+                                    Join
+                              </button>
+                        </div>
+                        <p class="mt-2 text-xs text-slate-600">
+                              Create a private room and share its 4-letter code, or join a friend's room.
+                        </p>
+                  </div>
+
                   <div class="mt-5 rounded-2xl p-2 w-full bg-white/50 backdrop-blur shadow-xl max-h-20/100 overflow-y-scroll no-scrollbar">
                         <p class="text-sm font-bold mb-1">
                               Online Players ({{ onlinePlayers.length }})
@@ -139,30 +104,25 @@ Vue.component("lobby-view", {
                                     class="flex items-center gap-2 text-sm bg-white/40 rounded-xl px-2 py-1">
                                     <span class="size-2 shrink-0 rounded-full bg-green-500"></span>
                                     <span class="font-bold">{{ p.name }}</span>
-                                    <span v-if="p.id === socketId" class="text-xs text-slate-500 ml-auto">
+                                    <span v-if="p.roomCode" class="text-xs text-orange-600 ml-auto">room {{ p.roomCode }}</span>
+                                    <span v-else-if="p.id === socketId" class="text-xs text-slate-500 ml-auto">
                                           (you)
                                     </span>
                               </div>
                         </div>
                   </div>
 
-                  <div class="text-2xl rounded-xl mt-4 text-white bg-orange-600 p-2 w-fit font-bold text-center">
+                  <div class="mt-4 text-2xl rounded-xl text-white bg-orange-600 p-2 w-fit font-bold text-center">
                         Games
                   </div>
+                  <p class="mt-1 text-center text-sm text-slate-600 bg-white/50 rounded-xl py-2">
+                        Join or create a room to start a game with a friend.
+                  </p>
+                  <p class="mt-2 text-center text-xs text-slate-500">
+                        Tic Tac Toe · Find My Pizza — more on the way!
+                  </p>
 
-                  <div class="mt-1 p-1 grid grid-cols-1 sm:grid-cols-2 gap-3 h-60/100 rounded-xl overflow-y-scroll no-scrollbar">
-                        <div v-for="g in games" :key="g.id" @click="!g.disabled && $emit('select-game', g)"
-                              :class="g.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02] transition-transform active:scale-95'"
-                              class="rounded-2xl bg-white/50 w-full backdrop-blur shadow-xl p-4">
-                              <div class="text-xl font-bold">{{ g.icon }} {{ g.name }}</div>
-                              <div class="text-sm text-slate-700 mt-1">{{ g.desc }}</div>
-                              <div class="text-xs mt-2 w-fit px-2 py-0.5 rounded-xl"
-                                    :class="g.disabled ? 'bg-yellow-500 text-yellow-100' : 'bg-green-600 text-white'">
-                                    {{ g.status }}
-                              </div>
-                        </div>
-                        <div class="h-24"></div>
-                  </div>
+                  <div class="h-24"></div>
             </div>
       `,
 });

@@ -57,13 +57,17 @@
 
             <!-- LOBBY VIEW -->
             <lobby-view ref="lobby" v-show="view === 'lobby'" :my-name="myName" :connection-status="connectionStatus"
-                  :socket-id="socketId" @select-game="selectGame"></lobby-view>
+                  :socket-id="socketId"></lobby-view>
+
+            <!-- ROOM VIEW -->
+            <room-view ref="room" v-show="view === 'room'" :socket-id="socketId" @select-game="selectGame"
+                  @leave-room="leaveRoom"></room-view>
 
             <!-- TIC TAC TOE VIEW -->
-            <tictactoe-view ref="tt" v-show="view === 'tictactoe'"></tictactoe-view>
+            <tictactoe-view ref="tt" v-show="view === 'tictactoe'" @leave-room="leaveRoom"></tictactoe-view>
 
             <!-- PIZZA GAME VIEW -->
-            <pizza-view ref="pizza" v-show="view === 'pizza'"></pizza-view>
+            <pizza-view ref="pizza" v-show="view === 'pizza'" @leave-room="leaveRoom"></pizza-view>
 
             <!-- floating chat button (visible on all game pages) -->
             <button @click="openChat"
@@ -90,6 +94,7 @@
 
             <script src="components/auth-view.js"></script>
             <script src="components/lobby-view.js"></script>
+      <script src="components/room-view.js"></script>
       <script src="components/tictactoe-view.js"></script>
       <script src="components/pizza-view.js"></script>
       <script src="components/chat-view.js"></script>

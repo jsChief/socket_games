@@ -30,12 +30,22 @@ Vue.component("tictactoe-view", {
             opponentTurn() {
                   this.myTurn = false;
             },
+            leaveRoom() {
+                  this.$emit("leave-room");
+            },
       },
       template: `
             <div>
                   <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 font-bold shadow">
                         Christy's Tic Tac Toe
                   </p>
+
+                  <div class="mt-2 flex gap-2 justify-center">
+                        <button @click="leaveRoom"
+                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
+                              Leave room
+                        </button>
+                  </div>
 
                   <div
                         class="w-full h-60 rounded p-4 grid grid-rows-3 shadow-xl mx-auto mt-2 font-bold text-4xl backdrop-blur-sm rounded-2xl p-2 text-white">

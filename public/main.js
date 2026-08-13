@@ -1,4 +1,5 @@
 const socketUrls = [
+      "http://192.168.43.219:3000", //wp-360
       "http://192.168.0.180:3000", //wp-360
       "https://fond-dory-suitable.ngrok-free.app",
       "http://192.168.0.139:3000",
@@ -25,16 +26,26 @@ var app = new Vue({
             selectGame(g) {
                   if (g.disabled) return;
                   if (this.$refs.chat) this.$refs.chat.close();
-                  this.view = g.id;
-                  sessionStorage.setItem("view", g.id);
                   socket.emit("select-game", { game: g.id });
             },
-            backToLobby() {
+            backToRoom() {
+                  socket.emit("leave-game");
+                  if (this.$refs.chat) this.$refs.chat.close();
+                  this.view = "room";
+                  sessionStorage.setItem("view", "room");
+                  if (this.$refs.pizza) this.$refs.pizza.clearTimer();
+            },
+            leaveRoom() {
+                  socket.emit("leave-room");
+                  this.goLobby();
+            },
+            goLobby() {
                   socket.emit("leave-game");
                   if (this.$refs.chat) this.$refs.chat.close();
                   this.view = "lobby";
                   sessionStorage.removeItem("view");
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
+                  if (this.$refs.room) this.$refs.room.reset();
             },
             onAuthSubmit(payload) {
                   socket.emit(payload.mode === "register" ? "register" : "login", {
@@ -64,7 +75,7 @@ window.addEventListener("popstate", () => {
       if (app.$refs.chat && app.$refs.chat.chatOpen) {
             app.$refs.chat.close();
       } else if (app.view !== "lobby") {
-            app.backToLobby();
+            app.backToRoom();
       }
 });
 
@@ -118,7 +129,7 @@ function connectSocket() {
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("authUsername", data.username || "");
             const saved = sessionStorage.getItem("view");
-            app.view = ["tictactoe", "pizza"].includes(saved)
+            app.view = ["tictactoe", "pizza", "room"].includes(saved)
                   ? saved
                   : "lobby";
             if (app.$refs.auth) app.$refs.auth.reset();
@@ -126,6 +137,33 @@ function connectSocket() {
 
       socket.on("auth-error", (message) => {
             if (app.$refs.auth) app.$refs.auth.showError(message);
+      });
+
+      // -------- Room socket handlers --------
+      socket.on("room-created", (data) => {
+            showToast("Room " + data.code + " created!", "success");
+            if (app.$refs.chat) app.$refs.chat.resetOpponent();
+            app.view = "room";
+            sessionStorage.setItem("view", "room");
+      });
+
+      socket.on("room-joined", (data) => {
+            showToast("Welcome to room " + data.code, "success");
+            if (app.$refs.chat) app.$refs.chat.resetOpponent();
+            app.view = "room";
+            sessionStorage.setItem("view", "room");
+      });
+
+      socket.on("room-update", (data) => {
+            if (app.$refs.room) app.$refs.room.setRoom(data);
+      });
+
+      socket.on("room-error", (msg) => {
+            showToast(msg, "error");
+      });
+
+      socket.on("room-left", () => {
+            app.goLobby();
       });
 
       socket.on("online-players", (list) => {
@@ -177,7 +215,7 @@ function connectSocket() {
 
       // -------- Pizza game socket handlers --------
       socket.on("pizza-start", (data) => {
-            if (app.view === "lobby") {
+            if (app.view === "lobby" || app.view === "room") {
                   app.view = "pizza";
                   sessionStorage.setItem("view", "pizza");
             }
@@ -220,7 +258,7 @@ function connectSocket() {
       socket.on("player2", (data) => {
             app.opponent = data.name;
             if (app.$refs.chat) app.$refs.chat.setOpponent(data.name, data.symbol);
-            if (app.view === "lobby") {
+            if (app.view === "lobby" || app.view === "room") {
                   app.view = "tictactoe";
                   sessionStorage.setItem("view", "tictactoe");
             }
@@ -235,7 +273,12 @@ function connectSocket() {
             serverMessageTone.play();
             app.opponent = "";
             if (app.$refs.chat) app.$refs.chat.resetOpponent();
+            if (app.$refs.chat) app.$refs.chat.clearHighlights();
             showToast(name + " left", "error");
+            if (app.view === "tictactoe" || app.view === "pizza") {
+                  app.view = "room";
+                  sessionStorage.setItem("view", "room");
+            }
       });
 
       socket.on("player-reconnect", (name) => {
@@ -301,7 +344,7 @@ function connectSocket() {
 
       socket.on("set-turn", (message) => {
             serverMessageTone.play();
-            if (app.view === "lobby") {
+            if (app.view === "lobby" || app.view === "room") {
                   app.view = "tictactoe";
                   sessionStorage.setItem("view", "tictactoe");
             }
