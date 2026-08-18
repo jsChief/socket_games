@@ -33,6 +33,7 @@ var app = new Vue({
                   if (this.$refs.chat) this.$refs.chat.close();
                   this.view = "room";
                   sessionStorage.setItem("view", "room");
+                  if (this.$refs.tt) this.$refs.tt.resetView();
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
             },
             leaveRoom() {
@@ -44,6 +45,7 @@ var app = new Vue({
                   if (this.$refs.chat) this.$refs.chat.close();
                   this.view = "lobby";
                   sessionStorage.removeItem("view");
+                  if (this.$refs.tt) this.$refs.tt.resetView();
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
                   if (this.$refs.room) this.$refs.room.reset();
             },
@@ -84,6 +86,38 @@ var messageTone = document.getElementById("messageTone");
 var serverMessageTone = document.getElementById("serverMessageTone");
 var win = document.getElementById("win");
 var lose = document.getElementById("lose");
+var draw = document.getElementById("draw");
+var moveSound = document.getElementById("move");
+var joinSound = document.getElementById("join");
+
+// Play an audio element, silently ignoring failures (e.g. missing file).
+function playSound(el) {
+      if (!el) return;
+      try {
+            el.currentTime = 0;
+            var p = el.play();
+            if (p && p.catch) p.catch(function () {});
+      } catch (e) {}
+}
+
+// If a dedicated sound file is missing, fall back to an existing one so the
+// app keeps working until the user drops in the real file.
+function withFallback(el, fallbackEl) {
+      if (!el || !fallbackEl) return;
+      el.addEventListener(
+            "error",
+            function () {
+                  if (el.getAttribute("data-fallback") === "1") return;
+                  el.src = fallbackEl.src;
+                  el.setAttribute("data-fallback", "1");
+                  el.load();
+            },
+            { once: true },
+      );
+}
+withFallback(draw, serverMessageTone);
+withFallback(moveSound, messageTone);
+withFallback(joinSound, serverMessageTone);
 
 var persistentUserId = localStorage.getItem("persistentUserId");
 if (!persistentUserId) {
@@ -262,6 +296,7 @@ function connectSocket() {
       socket.on("player2", (data) => {
             app.opponent = data.name;
             if (app.$refs.chat) app.$refs.chat.setOpponent(data.name, data.symbol);
+            if (app.$refs.tt) app.$refs.tt.setOpponent(data);
             if (app.view === "lobby" || app.view === "room") {
                   app.view = "tictactoe";
                   sessionStorage.setItem("view", "tictactoe");
@@ -269,7 +304,7 @@ function connectSocket() {
       });
 
       socket.on("p2-join", (message) => {
-            serverMessageTone.play();
+            playSound(joinSound);
             showToast(message, "success");
       });
 
@@ -278,6 +313,7 @@ function connectSocket() {
             app.opponent = "";
             if (app.$refs.chat) app.$refs.chat.resetOpponent();
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
+            if (app.$refs.tt) app.$refs.tt.resetView();
             showToast(name + " left", "error");
             if (app.view === "tictactoe" || app.view === "pizza") {
                   app.view = "room";
@@ -298,6 +334,7 @@ function connectSocket() {
       // -------- Tic Tac Toe socket handlers --------
       socket.on("click-btn", (x) => {
             if (app.$refs.tt) app.$refs.tt.applyClickBtn(x);
+            playSound(moveSound);
       });
 
       socket.on("name-set", (data) => {
@@ -316,73 +353,46 @@ function connectSocket() {
       socket.on("p2-win", (message) => {
             lose.play();
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        message,
-                        "rounded-xl bg-transparent text-center text-green-600 text-3xl ",
-                        "server",
-                  );
+            if (app.$refs.tt) app.$refs.tt.setResult("lose", message);
       });
 
       socket.on("you-win", (message) => {
             win.play();
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        message,
-                        "rounded-xl bg-green-100 text-center text-green-600 text-3xl animate-pulse ",
-                        "server",
-                  );
+            if (app.$refs.tt) app.$refs.tt.setResult("win", message);
       });
 
       socket.on("draw-game", (message) => {
-            serverMessageTone.play();
+            playSound(draw);
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        message,
-                        "rounded-xl bg-blue-100 text-center text-blue-600 text-3xl animate-pulse ",
-                        "server",
-                  );
+            if (app.$refs.tt) app.$refs.tt.setResult("draw", message);
       });
 
       socket.on("set-turn", (message) => {
-            serverMessageTone.play();
             if (app.view === "lobby" || app.view === "room") {
                   app.view = "tictactoe";
                   sessionStorage.setItem("view", "tictactoe");
             }
             if (app.$refs.tt) app.$refs.tt.setTurn(message);
-            if (app.$refs.chat) app.$refs.chat.highlightMe();
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        message.text,
-                        "rounded-xl bg-orange-600 text-center text-orange-100 ",
-                        "server",
-                  );
       });
 
       socket.on("invalid-move", (message) => {
-            serverMessageTone.play();
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        message,
-                        "rounded-xl bg-yellow-200 text-center text-orange-700 ",
-                        "server",
-                  );
+            showToast(message, "error");
             if (app.$refs.tt) app.$refs.tt.myTurn = true;
       });
 
       socket.on("p2-turn", (name) => {
-            serverMessageTone.play();
             if (app.$refs.tt) app.$refs.tt.opponentTurn(name);
-            if (app.$refs.chat) app.$refs.chat.highlightOpponent();
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        name + "'s turn",
-                        "rounded-xl bg-green-600 text-center text-green-100 ",
-                        "server",
-                  );
+      });
+
+      socket.on("reset-request", (data) => {
+            serverMessageTone.play();
+            if (app.$refs.tt)
+                  app.$refs.tt.handleResetRequest(data && data.name);
+      });
+
+      socket.on("reset-declined", () => {
+            if (app.$refs.tt) app.$refs.tt.handleResetDeclined();
       });
 
       socket.on("set-table", (table) => {

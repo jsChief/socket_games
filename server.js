@@ -357,6 +357,7 @@ function leaveRoomHandler(socket) {
       room.virtualTable = tictactoe.emptyVirtualTable();
       io.to(other.id).emit("clear-table", "");
     }
+    room.resetRequest = false;
     pizza.reset(room);
     io.to(other.id).emit("p2-left", player ? player.name : "A player");
   }
@@ -561,28 +562,33 @@ io.on("connection", (socket) => {
     if (room) tictactoe.resetGame(room);
   });
 
-  socket.on("request-game-reset", (name) => {
+  socket.on("request-game-reset", (data) => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    if (room.pizza.active) return;
+    const me = room.players.find((p) => p && p.id === socket.id);
+    const other = room.players.find((p) => p && p.id !== socket.id);
+    room.resetRequest = true;
+    if (other) {
+      io.to(other.id).emit("reset-request", {
+        name: me ? me.name : (data && data.name) || "Your opponent",
+      });
+    }
+  });
+
+  socket.on("accept-game-reset", () => {
+    const room = getRoomForSocket(socket);
+    if (!room || !room.resetRequest) return;
+    room.resetRequest = false;
+    tictactoe.resetGame(room);
+  });
+
+  socket.on("decline-game-reset", () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const other = room.players.find((p) => p && p.id !== socket.id);
-    if (other) {
-      io.to(other.id).emit(
-        "server-info",
-        name + " wants to reset the game, use '/accept' to accept the request",
-      );
-    }
-    room.resetRequest = true;
-  });
-
-  socket.on("accept-game-reset", (x) => {
-    const room = getRoomForSocket(socket);
-    if (!room) return;
-    if (room.resetRequest) {
-      tictactoe.resetGame(room);
-      room.resetRequest = false;
-    } else {
-      socket.emit("server-info", "No reset request");
-    }
+    room.resetRequest = false;
+    if (other) io.to(other.id).emit("reset-declined");
   });
 
   socket.on("echo-message", (message) => {
@@ -599,6 +605,7 @@ io.on("connection", (socket) => {
       const room = player.roomCode ? rooms[player.roomCode] : null;
       if (room) {
         if (room.pizza.active) pizza.reset(room);
+        room.resetRequest = false;
         if (room.gameOn) {
           room.gameOn = false;
           room.table = tictactoe.emptyTable();
@@ -690,6 +697,7 @@ io.on("connection", (socket) => {
     player.game = null;
     player.symbol = null;
     const other = room.players[1 - index];
+    room.resetRequest = false;
     if (room.gameOn) {
       room.gameOn = false;
       room.table = tictactoe.emptyTable();

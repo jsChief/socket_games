@@ -12,6 +12,19 @@ Vue.component("chat-view", {
                   opponentLabel: "",
                   opponentHighlighted: false,
                   typingTimeout: null,
+                  quickChatOpen: false,
+                  quickMessages: [
+                        "Your turn!",
+                        "Nice move! 👍",
+                        "Good game!",
+                        "GG 🤝",
+                        "Rematch?",
+                        "Hello! 👋",
+                        "Good luck!",
+                        "Ouch 😅",
+                        "lol",
+                        "Bye! 👋",
+                  ],
             };
       },
       computed: {
@@ -164,6 +177,25 @@ Vue.component("chat-view", {
                   this.replyTarget = null;
                   this.stopTyping();
             },
+            sendQuick(text) {
+                  const payload = {
+                        text,
+                        replyTo: this.replyTarget
+                              ? this.replyTarget.text
+                              : null,
+                        replyToId: this.replyTarget
+                              ? this.replyTarget.id
+                              : null,
+                  };
+                  socket.emit("user-message", payload);
+                  this.addMessage(
+                        payload,
+                        "rounded-l-xl rounded-br-xl text-right bg-orange-100 ",
+                        "me",
+                  );
+                  this.replyTarget = null;
+                  this.stopTyping();
+            },
             sendMessage() {
                   if (this.inputValue === "") return;
                   let splitMsg = this.inputValue.split(" ");
@@ -172,20 +204,6 @@ Vue.component("chat-view", {
                               name: splitMsg[1],
                               persistentUserId: persistentUserId,
                         });
-                  } else if (splitMsg[0] == "/reset") {
-                        if (!app.opponent) {
-                              socket.emit("reset-game", app.myName);
-                        } else {
-                              socket.emit("request-game-reset", app.myName);
-                              this.addMessage(
-                                    "Game reset request has been sent to " +
-                                          app.opponent,
-                                    "text-center bg-blue-200 text-blue-700 ",
-                                    "server",
-                              );
-                        }
-                  } else if (splitMsg[0] == "/accept") {
-                        socket.emit("accept-game-reset", app.myName);
                   } else {
                         const payload = {
                               text: this.inputValue,
@@ -350,6 +368,22 @@ Vue.component("chat-view", {
                                                 class="hover:scale-125 transition-transform active:scale-95">
                                                 🎉
                                           </button>
+                                    </div>
+
+                                    <div class="flex items-center gap-2 mb-1">
+                                          <button @click="quickChatOpen = !quickChatOpen"
+                                                :class="quickChatOpen ? 'bg-slate-700 text-white' : 'bg-gradient-to-br from-yellow-400 to-orange-600 text-white'"
+                                                class="shrink-0 px-3 py-1 text-xs font-bold rounded-xl shadow hover:scale-105 active:scale-95 transition-transform">
+                                                {{ quickChatOpen ? "Hide" : "💬 Quick Chat" }}
+                                          </button>
+                                          <div v-if="quickChatOpen"
+                                                class="flex flex-wrap gap-1 overflow-x-auto no-scrollbar">
+                                                <button v-for="q in quickMessages" :key="q"
+                                                      @click="sendQuick(q)"
+                                                      class="px-2 py-1 text-xs rounded-xl bg-white/80 text-slate-800 shadow hover:scale-105 active:scale-95 transition-transform">
+                                                      {{ q }}
+                                                </button>
+                                          </div>
                                     </div>
 
                                     <div class="h-fit w-full rounded-2xl flex items-center place-content-between">

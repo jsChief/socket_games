@@ -8,13 +8,37 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
     *   **Turn Indicator:** Clearly indicate whose turn it is (e.g., highlighting the current player's name/symbol, distinct border).
     *   **Move Animations:** Add subtle animations when 'X' or 'O' marks are placed.
     *   **Win/Draw Animation:** Implement more celebratory animations for wins and clear visual cues for draws.
+
+> **Status:** DONE. The Tic-Tac-Toe screen now shows a turn indicator as two
+> player cards (you + opponent) with the active player highlighted (ring +
+> pulse + color), a pop animation on every placed mark, a glowing highlight on
+> the winning line, and a full-screen animated win/lose/draw banner. Game info
+> (turn, result, invalid moves) is shown on the game screen instead of being
+> posted into the chat feed (see `tictactoe-view.js` + `main.js`).
+>
+> The **Find My Pizza** screen got the same treatment (`pizza-view.js`): player
+> cards with a highlighted turn indicator during battle, pop/hit/miss cell
+> animations, a full-screen animated win/lose banner, and a rematch banner when
+> the opponent asks to play again.
 *   **Sound Effects:**
     *   **On Move:** A distinct sound when a mark is placed.
     *   **Win/Loss/Draw:** Different sounds for game outcomes.
     *   **New Player Join:** A subtle sound when an opponent connects.
+
+> **Status:** DONE. A sound plays on every placed Tic-Tac-Toe mark (own move +
+> opponent move), wins/losses/draws each use their own sound, and a subtle join
+> sound plays when an opponent connects. New dedicated files (`move.mp3`,
+> `join.mp3`, `draw_notify.mp3`) are wired up in `index.html` + `main.js` and
+> automatically fall back to existing sounds until you drop those files into
+> `public/assets/`.
 *   **Improved Chat Features:**
     *   **Emojis:** Allow players to send emojis in the chat.
     *   **Quick Chat:** Implement a set of pre-defined, one-click messages (e.g., "Good game!", "Your turn!").
+
+> **Status:** DONE. The chat has a one-click emoji reaction bar (👍❤️😂😮😢🔥👏🎉)
+> and a "💬 Quick Chat" toggle with preset one-click messages ("Your turn!",
+> "Good game!", "Rematch?", ...) that are sent like normal chat messages — see
+> `chat-view.js`.
 
 ## 2. Game Mechanics & Flow
 
@@ -25,6 +49,14 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
     *   Queue new players if a game is in progress.
 *   **Timer Per Turn:** Add a countdown timer for each player's move. If time runs out, the player could forfeit or their turn could be skipped.
 *   **Game Reset Confirmation:** Ensure both players confirm before the game resets, especially during an active game.
+
+> **Status (Rematch + Reset Confirmation):** DONE. The Tic-Tac-Toe screen has a
+> "↻ New Game" button (no more `/reset` chat command). It sends a reset request to
+> the opponent, who sees an Accept / Decline dialog on the game screen. Both
+> accepting players get a fresh board. Requests/accepts are scoped per-room and
+> are cleared automatically if a player leaves (see `tictactoe-view.js`,
+> `main.js` and the `request-game-reset` / `accept-game-reset` /
+> `decline-game-reset` handlers in `server.js`).
 
 ## 3. Persistence & User Management
 
