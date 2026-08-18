@@ -108,3 +108,34 @@ Currently the whole app is a single 2-player table: two players join, pick a gam
 
 * forgot password
 Admin-issued reset code (best for a friend group). Player clicks "forgot password" → server shows "ask an admin for a reset code" → you run a command that prints a short-lived one-time code → player enters code + new password in the dialog → server resets. The out-of-band channel is you telling them the code in person/WhatsApp.
+
+## 7. Reversi (Othello) ✅
+
+A full two-player Reversi game, selectable from the room game cards.
+
+> **Status:** DONE. Game logic lives in `lib/reversi.js` (board is a 64-cell
+> array, symbols `b`/`w`, black moves first, `flipsForMove` flank validation,
+> pass when a player has no legal moves, win/lose/draw + stats). The server wires
+> it like the other games (`reversi-start` / `reversi-state` /
+> `reversi-game-over` / `reversi-move` / `reversi-rematch` /
+> `reversi-rematch-request` / `reversi-info`), scoped per room with reconnect
+> resync. The `reversi-view` component shows player cards with a turn indicator,
+> a green board with legal-move dots, pop + flip animations, a win/lose/draw
+> overlay with counts, and a rematch banner. E2E coverage: reversi starts in its
+> own room, an opening move flips the expected cell and passes the turn, and
+> reversi events never leak across rooms.
+
+## 8. AI Bot (play against the computer) 🤖
+
+Practice any game solo by adding an AI as the second player in a room.
+
+> **Status:** DONE. From the room screen, a player can click "Add AI opponent";
+> the server spawns a real `socket.io-client` connection (`lib/bot.js`) that
+> joins the room as "AI Bot" and mirrors whatever game you pick, so games start
+> instantly. It plays all three games over the same socket protocol a human
+> uses: perfect minimax for Tic-Tac-Toe, a flanks + corners greedy for Reversi,
+> and hide-and-hunt placement for Find My Pizza. It auto-accepts resets and
+> rematches, reacts with a short delay so moves are visible, cleans itself up
+> when the human leaves, and can be removed via "Remove AI". Served only to its
+> own room (per-room `persistentUserId`, excluded from the online players list)
+> and covered by e2e tests for all three games.

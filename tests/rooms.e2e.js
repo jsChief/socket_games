@@ -5,8 +5,9 @@
 //   1. create/find room by code, room seats 2 players
 //   2. tic-tac-toe starts only in the room where both players picked it
 //   3. pizza starts independently in a second room
-//   4. game events (click-btn / pizza-start) never leak across rooms
-//   5. leaving a room returns players to the lobby
+//   4. reversi starts independently in a third room (flip + turn pass)
+//   5. an AI bot can be added as a second player and plays all three games
+//   6. leaving a room returns players to the lobby and closes empty rooms
 //
 // Run with: node tests/rooms.e2e.js  (server must be safe to start on :3000)
 
@@ -94,6 +95,9 @@ async function run() {
   const bob = await connect("bob");
   const carol = await connect("carol");
   const dave = await connect("dave");
+  const eve = await connect("eve");
+  const frank = await connect("frank");
+  const grace = await connect("grace");
 
   // --- Authenticate (legacy /name flow is fine here) ---
   alice.emit("player-initial-connect", {
@@ -112,11 +116,26 @@ async function run() {
     persistentUserId: "e2e-dave",
     name: "Dave",
   });
+  eve.emit("player-initial-connect", {
+    persistentUserId: "e2e-eve",
+    name: "Eve",
+  });
+  frank.emit("player-initial-connect", {
+    persistentUserId: "e2e-frank",
+    name: "Frank",
+  });
+  grace.emit("player-initial-connect", {
+    persistentUserId: "e2e-grace",
+    name: "Grace",
+  });
   await Promise.all([
     waitEvent(alice, "name-set"),
     waitEvent(bob, "name-set"),
     waitEvent(carol, "name-set"),
     waitEvent(dave, "name-set"),
+    waitEvent(eve, "name-set"),
+    waitEvent(frank, "name-set"),
+    waitEvent(grace, "name-set"),
   ]);
   console.log("  All clients connected + identified.");
 
@@ -224,6 +243,67 @@ async function run() {
     "pizza battle does not leak into room 1",
   );
 
+  // --- Reversi starts independently in a third room (Eve + Frank) ---
+  eve.emit("create-room");
+  const created3 = await waitEvent(eve, "room-created");
+  const codeC = created3.code;
+  assert(codeC !== codeA && codeC !== codeB, "third room has a different code");
+
+  frank.emit("join-room", { code: codeC });
+  await waitEvent(frank, "room-joined");
+  await waitEvent(
+    frank,
+    "room-update",
+    (d) => d.players.length === 2,
+  );
+
+  eve.emit("select-game", { game: "reversi" });
+  frank.emit("select-game", { game: "reversi" });
+  const [eveStart, frankStart] = await Promise.all([
+    waitEvent(eve, "reversi-start"),
+    waitEvent(frank, "reversi-start"),
+  ]);
+  assert(
+    eveStart.board && eveStart.board.length === 64,
+    "reversi-start board has 64 cells",
+  );
+  assert(
+    eveStart.symbol !== frankStart.symbol,
+    "reversi players get different symbols",
+  );
+  assert(
+    ["b", "w"].includes(eveStart.symbol),
+    "reversi symbols are b/w",
+  );
+  console.log("  Reversi started in room 3.");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "reversi-start") &&
+      !bob._inbox.some((m) => m.event === "reversi-start") &&
+      !carol._inbox.some((m) => m.event === "reversi-start") &&
+      !dave._inbox.some((m) => m.event === "reversi-start"),
+    "reversi-start does not leak into rooms 1 and 2",
+  );
+
+  // --- Black plays a legal opening move (cell 19) which flips cell 27 ---
+  const black = eveStart.symbol === "b" ? eve : frank;
+  const white = black === eve ? frank : eve;
+  black.emit("reversi-move", { cell: 19 });
+  const state = await waitEvent(
+    white,
+    "reversi-state",
+    (d) => Array.isArray(d.board) && d.board[19] === "b",
+  );
+  assert(state.board[19] === "b", "white sees the black disc at cell 19");
+  assert(state.board[27] === "b", "cell 27 flipped to black after the move");
+  assert(state.currentSymbol === "w", "turn passes to white after a move");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "reversi-state") &&
+      !carol._inbox.some((m) => m.event === "reversi-state"),
+    "reversi-state does not leak across rooms",
+  );
+
   // --- Leave room 2 (Dave) -> Carol notified, Dave back to lobby ---
   dave.emit("leave-room");
   await waitEvent(carol, "p2-left");
@@ -241,6 +321,95 @@ async function run() {
   await waitEvent(bob, "p2-left");
   await waitEvent(alice, "room-left");
 
+  // --- Leave room 3 cleanup (Eve + Frank) ---
+  eve.emit("leave-game");
+  eve.emit("leave-room");
+  await waitEvent(frank, "p2-left");
+  await waitEvent(eve, "room-left");
+  frank.emit("leave-room");
+  await waitEvent(frank, "room-left");
+
+  // --- AI bot: added as a second player and plays tic-tac-toe + reversi ---
+  grace.emit("create-room");
+  const created4 = await waitEvent(grace, "room-created");
+  const codeD = created4.code;
+  assert(
+    codeD !== codeA && codeD !== codeB && codeD !== codeC,
+    "AI room has a different code",
+  );
+
+  grace.emit("add-bot");
+  const botJoin = await waitEvent(
+    grace,
+    "room-update",
+    (d) => d.players.length === 2,
+  );
+  const botPlayer = botJoin.players.find((p) => p.id !== grace.id);
+  assert(!!botPlayer && botPlayer.isBot === true, "AI bot is seated as a player");
+  assert(!!botPlayer && /bot/i.test(botPlayer.name), "AI bot has a bot name");
+  console.log("  AI bot joined room " + codeD + ".");
+
+  grace.emit("select-game", { game: "tictactoe" });
+  const p2 = await waitEvent(grace, "player2");
+  const mySymbol = p2.symbol === "x" ? "o" : "x";
+  const firstTurn = await waitEvent(grace, "set-turn");
+  if (firstTurn.symbol === mySymbol) {
+    grace.emit("btn-pos", { index: 4, symbol: firstTurn.symbol });
+  } else {
+    await waitEvent(grace, "click-btn");
+    const myTurn = await waitEvent(grace, "set-turn");
+    grace.emit("btn-pos", { index: 4, symbol: myTurn.symbol });
+  }
+  await waitEvent(grace, "click-btn");
+  assert(true, "AI bot plays tic-tac-toe");
+  console.log("  AI bot played a tic-tac-toe move.");
+
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "pizza" });
+  await waitEvent(grace, "pizza-start");
+  const gboard = Array(20).fill(false);
+  [0, 2, 4, 6, 8].forEach((c) => (gboard[c] = true));
+  grace.emit("pizza-submit", { board: gboard });
+  const battle = await waitEvent(grace, "pizza-battle-start");
+  if (battle.yourTurn) {
+    grace.emit("pizza-attack", { cell: 10 });
+  }
+  await waitEvent(
+    grace,
+    "pizza-attack-result",
+    (d) => d.youAttacked === false,
+  );
+  assert(true, "AI bot plays Find My Pizza");
+  console.log("  AI bot played a pizza attack.");
+
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "reversi" });
+  const graceRev = await waitEvent(grace, "reversi-start");
+  assert(
+    Array.isArray(graceRev.board) && graceRev.board.length === 64,
+    "reversi vs AI starts with a 64-cell board",
+  );
+  if (graceRev.symbol === "b") {
+    grace.emit("reversi-move", { cell: 19 });
+  }
+  await waitEvent(
+    grace,
+    "reversi-state",
+    (d) => d.currentSymbol === graceRev.symbol,
+  );
+  assert(true, "AI bot plays reversi");
+  console.log("  AI bot played a reversi move.");
+
+  // --- Leave the AI room -> the bot cleans itself up and the room closes ---
+  grace.emit("leave-room");
+  await waitEvent(grace, "room-left");
+  await sleep(600);
+  grace.emit("join-room", { code: codeD });
+  const goneD = await waitEvent(grace, "room-error");
+  assert(/not found/.test(goneD), "AI room is closed after everyone leaves");
+
   // --- Empty room is closed once everyone leaves ---
   bob.emit("leave-room");
   await waitEvent(bob, "room-left");
@@ -254,6 +423,9 @@ async function run() {
   bob.close();
   carol.close();
   dave.close();
+  eve.close();
+  frank.close();
+  grace.close();
   process.exit(failures === 0 ? 0 : 1);
 }
 

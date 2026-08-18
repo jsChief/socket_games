@@ -75,8 +75,8 @@ Vue.component("room-view", {
                               icon: "⚫",
                               name: "Reversi",
                               desc: "Flip pieces to claim the most of the board.",
-                              status: "Coming soon",
-                              disabled: true,
+                              status: "Available",
+                              disabled: false,
                         },
                   ],
             };
@@ -97,6 +97,9 @@ Vue.component("room-view", {
             },
             myGame() {
                   return this.me ? this.me.game : null;
+            },
+            hasBot() {
+                  return this.players.some((p) => p && p.isBot);
             },
       },
       methods: {
@@ -165,6 +168,7 @@ Vue.component("room-view", {
                                     class="flex items-center gap-2 text-sm bg-white/40 rounded-xl px-2 py-1">
                                     <span class="size-2 shrink-0 rounded-full"
                                           :class="p.online ? 'bg-green-500' : 'bg-red-400'"></span>
+                                    <span v-if="p.isBot" class="text-base">🤖</span>
                                     <span class="font-bold">{{ p.name }}</span>
                                     <span v-if="p.symbol" class="text-xs text-orange-700">{{ p.symbol }}</span>
                                     <span v-if="p.id === socketId" class="text-xs text-slate-500 ml-auto">
@@ -177,6 +181,23 @@ Vue.component("room-view", {
                                     <span>Waiting for player {{ players.length + n }}...</span>
                               </div>
                         </div>
+                        <div class="mt-2 flex items-center gap-2">
+                              <button v-if="openSeats > 0 && !hasBot" @click="$emit('add-bot')"
+                                    class="rounded-xl px-3 py-1.5 bg-indigo-600 text-white text-sm font-bold shadow-xl hover:scale-105 active:scale-95 transition-all">
+                                    🤖 Add AI opponent
+                              </button>
+                              <div v-else-if="hasBot"
+                                    class="flex items-center gap-2 text-sm bg-white/50 rounded-xl px-3 py-1.5">
+                                    <span class="font-bold">🤖 AI Bot is ready</span>
+                                    <button @click="$emit('remove-bot')"
+                                          class="text-red-600 font-bold text-xs underline">
+                                          Remove AI
+                                    </button>
+                              </div>
+                        </div>
+                        <p v-if="hasBot" class="text-xs text-slate-500 mt-1">
+                              The AI automatically plays the game you pick.
+                        </p>
                   </div>
 
                   <div v-if="readyToPlay" class="text-2xl rounded-xl mt-4 text-white bg-orange-600 p-2 w-fit font-bold text-center">
