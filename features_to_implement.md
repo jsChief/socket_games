@@ -73,3 +73,6 @@ Currently the whole app is a single 2-player table: two players join, pick a gam
     *   Spectators in a room (watching the live board).
     *   Room settings (e.g., which games enabled, turn timer).
     *   Invite links that auto-register/login the invited friend.
+
+* forgot password
+Admin-issued reset code (best for a friend group). Player clicks "forgot password" → server shows "ask an admin for a reset code" → you run a command that prints a short-lived one-time code → player enters code + new password in the dialog → server resets. The out-of-band channel is you telling them the code in person/WhatsApp.

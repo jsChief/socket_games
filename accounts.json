@@ -11,10 +11,33 @@
       "salt": "bb8d3778adc61a9f66919ef4d43a23e5",
       "hash": "1fb261cf09bdd3b0ee0812ef1a289d9026e851401d80decac7d6931ae1dc5cf6a4d03ac2a16976880c7030ef0eb2d553e6f6c0d35dea21a001c90aa7bb1c7450",
       "persistentUserId": "d97e9895-ad6c-4578-8ae3-26d2e898965b"
+    },
+    "automate": {
+      "username": "Automate",
+      "salt": "be85cd89d354caf59875898292013656",
+      "hash": "18d61c52a2d48e7239bcef4a296a7a99c7baf9373540bb3bf694d3ca13080059913a325f30109dde835528dfc37877a0879bd410a5dc2a51e525b835e050c233",
+      "persistentUserId": "205d8e2d-e261-47ab-a562-ef28c1415e7b"
+    },
+    "dark-tayo": {
+      "username": "Dark-tayo",
+      "salt": "4682e88218e109be54469dab240dfc6a",
+      "hash": "04e2a806d926f7fb63276fceeab52340bec04f82f110cc3affb9af4da5d7589afcf8f489b7cc17c7aef229aa20e29cafd29b1e033ca0f991e20a3d65751dbf25",
+      "persistentUserId": "e1c2e00c-028a-4460-9d23-325c6175afd5"
+    },
+    "david": {
+      "username": "David",
+      "salt": "70f3deda5034e6c391e4f29509654be8",
+      "hash": "f5a34548bb6da52a056eae24c88c511b6196bfecb94e121454983dd1ceb1fad872cb32013511dbc91c884fd3f206a407f58e7124171a9e412853bb94b4afcdd3",
+      "persistentUserId": "8bd77ce5-a0c1-4723-97cf-f9292dc01520"
     }
   },
   "tokens": {
     "282cd50d5c12e8f2a43f905656ad13cddfb2782f9103af6800ca187129e0c01a": "james o",
-    "88b306557b0e8377b3e4f386c97efbe2d3da77fe94b5644cb86479196f6fefcd": "pc360"
+    "88b306557b0e8377b3e4f386c97efbe2d3da77fe94b5644cb86479196f6fefcd": "pc360",
+    "98aa51b5ddded43bda1bf7d653c2f0b8d6cf4130c60a4bef9b3b7f372f85d8a7": "james o",
+    "dbae809545f2a66a3a1ded77ddd44f96b1b10f8e56b7dfbbf6effa3a73ae246d": "pc360",
+    "910f2e9781b1a3cc65d261f22e2961623edd90fb365025999c9c5041ee82c97f": "automate",
+    "22b6603c24db3c72cc4edad38726d765c571e3b21d0d1cf3ca38015df91a99d4": "dark-tayo",
+    "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david"
   }
 }

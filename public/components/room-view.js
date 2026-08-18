@@ -133,32 +133,27 @@ Vue.component("room-view", {
                               showToast("Invite link copied!", "success");
                         });
                   } else {
-                        showToast("Room code: " + this.room.code, "success");
+                        showToast("Room code copied to clipboard", "success");
                   }
             },
       },
       template: `
             <div class="overflow-y-scroll h-full no-scrollbar">
-                  <div class="flex items-center gap-2 p-4">
-                        <p class="text-3xl font-bold bg-white/90 backdrop-blur rounded-2xl flex-1 text-center">
+                  <div class="flex-col items-center gap-2 p-2 bg-white/80 backdrop-blur rounded-2xl">
+                        <p class="text-3xl py-2 font-bold bg-white/90 rounded-2xl flex-1 text-center">
                               Game Room
                         </p>
-                  </div>
-
-                  <div class="mx-auto w-fit max-w-sm rounded-2xl bg-white/70 backdrop-blur shadow-xl p-4 text-center">
-                        <p class="text-xs uppercase tracking-widest text-slate-500">Room code</p>
-                        <div class="mt-1 flex items-center gap-2 justify-center">
-                              <p v-if="room" class="text-5xl font-black tracking-[0.4em] text-orange-600">{{ room.code }}</p>
-                              <p v-else class="text-3xl text-slate-400">...</p>
+                        <div class="mt-2 flex items-center gap-2 justify-center"> Code: 
+                              <p v-if="room" class="text-2xl font-black tracking-[0.4em] text-orange-600">{{ room.code }}</p>
+                              <p v-else class="text-xl text-slate-400">...</p>
                               <button v-if="room" @click="copyCode" title="Copy invite"
-                                    class="size-10 rounded-2xl bg-orange-600 text-white shadow-xl text-lg">
+                                    class="size-6 rounded-lg bg-orange-600 text-white shadow-xl text-sm">
                                     <span class="fas fa-copy"></span>
                               </button>
                         </div>
-                        <p class="mt-1 text-sm text-slate-600">Share this code with a friend to play.</p>
                   </div>
 
-                  <div class="mt-4 rounded-2xl p-2 w-full bg-white/50 backdrop-blur shadow-xl">
+                  <div class="mt-4 rounded-2xl p-2 md:w-1/2 w-full bg-white/50 backdrop-blur shadow-xl">
                         <p class="text-sm font-bold mb-1">
                               Players ({{ players.length }}/2)
                         </p>
@@ -191,7 +186,7 @@ Vue.component("room-view", {
                         Waiting for player 2 to join before games can start...
                   </p>
 
-                  <div class="mt-1 p-1 grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl overflow-y-scroll no-scrollbar">
+                  <div class="mt-1 p-1 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl h-45/100 overflow-y-scroll no-scrollbar">
                         <div v-for="g in games" :key="g.id" @click="selectGame(g)"
                               :class="g.disabled || !readyToPlay ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02] transition-transform active:scale-95'"
                               class="rounded-2xl bg-white/50 w-full backdrop-blur shadow-xl p-4">

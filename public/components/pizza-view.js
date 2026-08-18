@@ -50,6 +50,9 @@ Vue.component("pizza-view", {
             },
       },
       methods: {
+            autoPlace(data){
+                  this.myBoard = data;
+            },
             startTimer() {
                   this.clearTimer();
                   this.pizzaTimer = setInterval(() => {
@@ -181,6 +184,7 @@ Vue.component("pizza-view", {
                               "Place all " + this.slices + " slices first.";
                         return;
                   }
+                  this.submitted = true;
                   socket.emit("pizza-submit", {
                         board: this.myBoard.slice(),
                   });
@@ -201,15 +205,15 @@ Vue.component("pizza-view", {
             myCellClass(i) {
                   if (this.phase === "placement") {
                         return this.myBoard[i]
-                              ? "bg-orange-500 text-white cursor-pointer"
+                              ? "bg-orange-100/90 text-white cursor-pointer"
                               : "bg-white/60 cursor-pointer hover:bg-orange-200";
                   }
                   if (this.myAttacked[i]) {
                         return this.myBoard[i]
-                              ? "bg-slate-500 text-white"
+                              ? "bg-slate-500/70 text-white"
                               : "bg-slate-300 text-slate-600";
                   }
-                  if (this.myBoard[i]) return "bg-orange-500 text-white";
+                  if (this.myBoard[i]) return "bg-orange-100/90 text-white";
                   return "bg-white/60";
             },
             oppCellIcon(i) {
@@ -223,7 +227,7 @@ Vue.component("pizza-view", {
                   const clickable =
                         this.phase === "battle" && this.myTurn && g === null;
                   let cls = "bg-white/60";
-                  if (g === true) cls = "bg-green-500 text-white";
+                  if (g === true) cls = "bg-green-500/70 text-white";
                   else if (g === false) cls = "bg-red-200";
                   if (clickable) cls += " cursor-pointer hover:bg-yellow-200";
                   return cls;
@@ -240,7 +244,7 @@ Vue.component("pizza-view", {
       },
       template: `
             <div>
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/90 text-white font-bold shadow">
+                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/80 backdrop-blur text-white font-bold shadow">
                         Find My Pizza 🍕
                   </p>
 
@@ -251,7 +255,7 @@ Vue.component("pizza-view", {
                         </button>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/50 backdrop-blur shadow-xl">
+                  <div class="mt-2 rounded-2xl p-2 bg-white/80 backdrop-blur shadow-xl">
                         <p class="text-center text-sm">{{ pizzaStatus }}</p>
                         <p v-if="phase === 'placement'" class="text-center text-lg text-orange-600">
                               Time left: {{ timer }}s
@@ -265,9 +269,9 @@ Vue.component("pizza-view", {
                         </div>
                   </div>
 
-                  <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div :style="{ order: phase === 'battle' ? 2 : 1 }">
-                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1">
+                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1 md:w-[30vw]">
                                     My board ({{ mySlices }}/{{ slices }})
                               </p>
                               <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
@@ -284,7 +288,7 @@ Vue.component("pizza-view", {
                               </button>
                         </div>
                         <div :style="{ order: phase === 'battle' ? 1 : 2 }">
-                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1">
+                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1 md:w-[30vw]">
                                     {{ opponentName || "Opponent" }}'s board
                               </p>
                               <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">

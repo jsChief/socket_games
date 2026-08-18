@@ -1,6 +1,6 @@
 const socketUrls = [
-      "http://192.168.43.219:3000", //wp-360
       "http://192.168.0.180:3000", //wp-360
+      "http://192.168.43.219:3000", //wp-360
       "https://fond-dory-suitable.ngrok-free.app",
       "http://192.168.0.139:3000",
       "http://localhost:3000",
@@ -252,6 +252,10 @@ function connectSocket() {
 
       socket.on("pizza-waiting", (data) => {
             if (app.$refs.pizza) app.$refs.pizza.waiting(data);
+      });
+
+      socket.on("autoplace-pizza-board", (data) => {
+            if (app.$refs.pizza) app.$refs.pizza.autoPlace(data);
       });
 
       // -------- Lobby / connection helpers --------

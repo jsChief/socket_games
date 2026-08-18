@@ -11,6 +11,7 @@ Vue.component("tictactoe-view", {
                   if (!this.myTurn) return;
                   if (this.cells[index] !== "") return;
                   this.cells[index] = this.mySymbol;
+                  this.$set(this.cells, index, this.mySymbol);
                   socket.emit("btn-pos", { index, symbol: this.mySymbol });
                   this.myTurn = false;
             },
@@ -40,15 +41,12 @@ Vue.component("tictactoe-view", {
                         Christy's Tic Tac Toe
                   </p>
 
-                  <div class="mt-2 flex gap-2 justify-center">
-                        <button @click="leaveRoom"
-                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
-                              Leave room
-                        </button>
+                  <div class="mt-2 p-2 rounded-2xl w-fit" :class="{'bg-green-500 text-white': myTurn, 'bg-white text-black': !myTurn}">
+                        {{myTurn? "My turn": "opp's turn"}}
                   </div>
 
                   <div
-                        class="w-full h-60 rounded p-4 grid grid-rows-3 shadow-xl mx-auto mt-2 font-bold text-4xl backdrop-blur-sm rounded-2xl p-2 text-white">
+                        class="md:w-1/2 w-full h-60 rounded p-4 grid grid-rows-3 shadow-xl mx-auto mt-2 font-bold text-4xl backdrop-blur-sm rounded-2xl p-2 text-white">
                         <div class="bg-orange-600 rounded-t h-18 p-1 flex place-content-around items-center">
                               <button class="h-12 w-12 rounded shadow bg-black" @click="play(0)">{{ cells[0] }}</button>
                               <button class="h-12 w-12 rounded shadow bg-black" @click="play(1)">{{ cells[1] }}</button>
@@ -64,6 +62,13 @@ Vue.component("tictactoe-view", {
                               <button class="h-12 w-12 rounded shadow bg-black" @click="play(7)">{{ cells[7] }}</button>
                               <button class="h-12 w-12 rounded shadow bg-black" @click="play(8)">{{ cells[8] }}</button>
                         </div>
+                  </div>
+
+                  <div class="mt-2 flex gap-2 justify-center">
+                        <button @click="leaveRoom"
+                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
+                              Leave room
+                        </button>
                   </div>
             </div>
       `,
