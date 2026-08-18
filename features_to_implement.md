@@ -139,3 +139,23 @@ Practice any game solo by adding an AI as the second player in a room.
 > when the human leaves, and can be removed via "Remove AI". Served only to its
 > own room (per-room `persistentUserId`, excluded from the online players list)
 > and covered by e2e tests for all three games.
+
+## 9. Spectator Mode (watch a live room) 👁
+
+When both seats of a room are full, players who join by code watch the game live instead of getting a "room is full" error.
+
+> **Status:** DONE. Joining a full room now puts you in spectator mode. The
+> server keeps a `room.spectators` list (`lib/rooms.js`) and emits a separate
+> `spectate-<game>` event stream for watchers (`spectate-tictactoe`,
+> `spectate-reversi`, `spectate-pizza`), so spectators never receive private
+> player events (`set-turn`, `click-btn`, `player2`, ...). Each game module
+> exposes a `spectateTo(socket, room)` snapshot so joining mid-game instantly
+> shows the current board + whose turn it is. Pizza keeps the hidden slice
+> placements secret — only probes (hits/misses) are revealed, so you can't spoil
+> the outcome. The new `spectator-view` component shows both player cards with a
+> live turn highlight, the live board (winning Tic-Tac-Toe line included), and a
+> "Take a seat" button; when a seated player leaves, your seat fills the room.
+> Reconnecting spectators are restored to the spectator screen. Supported by e2e
+> coverage (join a full room → live board on join → moves broadcast live → no
+> private events leak to spectators / no spectate events leak to players →
+> taking a freed seat). A public game list (#4) is still a future enhancement.

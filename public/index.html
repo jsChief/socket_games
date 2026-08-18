@@ -209,6 +209,9 @@
             <!-- REVERSI GAME VIEW -->
             <reversi-view ref="reversi" v-show="view === 'reversi'" @leave-room="leaveRoom"></reversi-view>
 
+            <!-- SPECTATOR VIEW -->
+            <spectator-view ref="spectator" v-show="view === 'spectator'" @leave-room="leaveRoom"></spectator-view>
+
             <!-- floating chat button (visible on all game pages) -->
             <button @click="openChat"
                   class="fixed bottom-4 right-4 z-40 size-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-600 shadow-xl text-2xl flex items-center justify-center"
@@ -241,6 +244,7 @@
       <script src="components/tictactoe-view.js"></script>
       <script src="components/pizza-view.js"></script>
       <script src="components/reversi-view.js"></script>
+      <script src="components/spectator-view.js"></script>
       <script src="components/chat-view.js"></script>
 
       <script src="main.js"></script>

@@ -35,6 +35,11 @@ var app = new Vue({
                   socket.emit("remove-bot");
             },
             backToRoom() {
+                  if (this.view === "spectator") {
+                        socket.emit("leave-room");
+                        this.goLobby();
+                        return;
+                  }
                   socket.emit("leave-game");
                   if (this.$refs.chat) this.$refs.chat.close();
                   this.view = "room";
@@ -55,6 +60,7 @@ var app = new Vue({
                   if (this.$refs.tt) this.$refs.tt.resetView();
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
                   if (this.$refs.reversi) this.$refs.reversi.resetView();
+                  if (this.$refs.spectator) this.$refs.spectator.reset();
                   if (this.$refs.room) this.$refs.room.reset();
             },
             onAuthSubmit(payload) {
@@ -171,7 +177,7 @@ function connectSocket() {
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("authUsername", data.username || "");
             const saved = sessionStorage.getItem("view");
-            app.view = ["tictactoe", "pizza", "reversi", "room"].includes(saved)
+            app.view = ["tictactoe", "pizza", "reversi", "spectator", "room"].includes(saved)
                   ? saved
                   : "lobby";
             if (app.$refs.auth) app.$refs.auth.reset();
@@ -190,6 +196,15 @@ function connectSocket() {
       });
 
       socket.on("room-joined", (data) => {
+            const spectator = !!data.spectator;
+            if (spectator) {
+                  showToast("Room " + data.code + " is full — watching as spectator 👁", "success");
+                  if (app.$refs.chat) app.$refs.chat.resetOpponent();
+                  if (app.$refs.spectator) app.$refs.spectator.start(data);
+                  app.view = "spectator";
+                  sessionStorage.setItem("view", "spectator");
+                  return;
+            }
             showToast("Welcome to room " + data.code, "success");
             if (app.$refs.chat) app.$refs.chat.resetOpponent();
             app.view = "room";
@@ -198,6 +213,26 @@ function connectSocket() {
 
       socket.on("room-update", (data) => {
             if (app.$refs.room) app.$refs.room.setRoom(data);
+            if (app.$refs.spectator && app.view === "spectator") {
+                  app.$refs.spectator.setRoomInfo(data);
+            }
+      });
+
+      // -------- Spectator handlers (active while watching a full room) --------
+      socket.on("spectate-tictactoe", (data) => {
+            if (app.$refs.spectator) app.$refs.spectator.handleTictactoe(data);
+      });
+
+      socket.on("spectate-reversi", (data) => {
+            if (app.$refs.spectator) app.$refs.spectator.handleReversi(data);
+      });
+
+      socket.on("spectate-pizza", (data) => {
+            if (app.$refs.spectator) app.$refs.spectator.handlePizza(data);
+      });
+
+      socket.on("spectate-reset", () => {
+            if (app.$refs.spectator) app.$refs.spectator.handleReset();
       });
 
       socket.on("room-error", (msg) => {
@@ -397,6 +432,7 @@ function connectSocket() {
       });
 
       socket.on("draw-game", (message) => {
+            if (app.view === "spectator") return;
             playSound(draw);
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
             if (app.$refs.tt) app.$refs.tt.setResult("draw", message);
@@ -434,6 +470,7 @@ function connectSocket() {
       });
 
       socket.on("clear-table", () => {
+            if (app.view === "spectator") return;
             if (app.$refs.tt) app.$refs.tt.applyClearTable();
       });
 

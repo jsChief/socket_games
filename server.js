@@ -154,6 +154,7 @@ const {
   roomIndexOf,
   findFreeSeat,
   toRoom,
+  toSpectators,
   roomReady,
   getRoomView,
   scheduleRoomExpiry,
@@ -161,15 +162,17 @@ const {
 const tictactoe = createTicTacToeGame({
   io,
   toRoom,
+  toSpectators,
   roomReady,
   roomIndexOf,
   stats,
   saveStats,
 });
-const pizza = createPizza({ io, toRoom, roomReady, roomIndexOf });
+const pizza = createPizza({ io, toRoom, toSpectators, roomReady, roomIndexOf });
 const reversi = createReversi({
   io,
   toRoom,
+  toSpectators,
   roomReady,
   roomIndexOf,
   stats,
@@ -196,6 +199,7 @@ function makeRoom(code, creatorId) {
     gameOn: false,
     currentPlayer: 0,
     resetRequest: false,
+    spectators: [], // watchers who joined after both seats were full
     pizza: pizza.makeState(),
     reversi: reversi.makeState(),
   };
@@ -229,23 +233,35 @@ function connectPlayer(socket, data) {
     // Restore room membership if the player was seated somewhere.
     const room = existingPlayer.roomCode ? rooms[existingPlayer.roomCode] : null;
     if (room) {
-      socket.emit("room-joined", { code: room.code, resuming: true });
       const idx = roomIndexOf(room, socket.id);
-      if (idx !== -1) {
-        if (room.gameOn) {
-          socket.emit("set-table", room.table);
-          if (room.currentPlayer === idx) {
-            socket.emit("set-turn", {
-              symbol: room.players[idx].symbol,
-              text: "Your turn",
-            });
-          } else {
-            const otherPlayer = room.players[1 - idx];
-            if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
+      if (idx === -1 && room.spectators.includes(existingPlayer)) {
+        // Reconnecting spectator: put them back on the spectator screen.
+        socket.emit("room-joined", {
+          code: room.code,
+          resuming: true,
+          spectator: true,
+        });
+        tictactoe.spectateTo(socket, room);
+        pizza.spectateTo(socket, room);
+        reversi.spectateTo(socket, room);
+      } else {
+        socket.emit("room-joined", { code: room.code, resuming: true });
+        if (idx !== -1) {
+          if (room.gameOn) {
+            socket.emit("set-table", room.table);
+            if (room.currentPlayer === idx) {
+              socket.emit("set-turn", {
+                symbol: room.players[idx].symbol,
+                text: "Your turn",
+              });
+            } else {
+              const otherPlayer = room.players[1 - idx];
+              if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
+            }
           }
+          if (room.pizza.active) pizza.resync(socket, room, idx);
+          if (room.reversi && room.reversi.active) reversi.resync(socket, room, idx);
         }
-        if (room.pizza.active) pizza.resync(socket, room, idx);
-        if (room.reversi && room.reversi.active) reversi.resync(socket, room, idx);
       }
       toRoom(room, "room-update", getRoomView(room));
     } else {
@@ -338,7 +354,21 @@ function joinRoomHandler(socket, codeInput) {
   }
   const seat = findFreeSeat(room);
   if (seat === -1) {
-    socket.emit("room-error", "Room is full.");
+    // Room is full: join as a spectator instead.
+    if (room.spectators.includes(player)) {
+      socket.emit("server-info", "You are already watching room " + code + ".");
+      return;
+    }
+    room.spectators.push(player);
+    player.roomCode = code;
+    room.lastActivity = Date.now();
+    socket.emit("room-joined", { code, resuming: false, spectator: true });
+    socket.emit("server-info", "Both seats are taken — you joined as a spectator.");
+    tictactoe.spectateTo(socket, room);
+    pizza.spectateTo(socket, room);
+    reversi.spectateTo(socket, room);
+    toRoom(room, "room-update", getRoomView(room));
+    io.emit("online-players", getOnlinePlayers());
     return;
   }
   room.players[seat] = player;
@@ -353,6 +383,19 @@ function joinRoomHandler(socket, codeInput) {
   io.emit("online-players", getOnlinePlayers());
 }
 
+// Delete a room once no players remain, kicking any spectators out.
+function closeRoom(room) {
+  delete rooms[room.code];
+  for (const sp of room.spectators) {
+    if (sp && sp.id) {
+      sp.roomCode = null;
+      io.to(sp.id).emit("room-left");
+    }
+  }
+  room.spectators = [];
+  console.log("Room " + room.code + " closed (empty).");
+}
+
 // Leave a room (back to the lobby).
 function leaveRoomHandler(socket) {
   const room = getRoomForSocket(socket);
@@ -361,6 +404,25 @@ function leaveRoomHandler(socket) {
     return;
   }
   const index = roomIndexOf(room, socket.id);
+  if (index === -1) {
+    // Spectator leaving.
+    const si = room.spectators.findIndex((p) => p.id === socket.id);
+    if (si === -1) {
+      socket.emit("server-warn", "You are not in a room.");
+      return;
+    }
+    const sp = room.spectators[si];
+    room.spectators.splice(si, 1);
+    sp.roomCode = null;
+    socket.emit("room-left");
+    if (!room.players.some(Boolean)) {
+      closeRoom(room);
+    } else {
+      toRoom(room, "room-update", getRoomView(room));
+    }
+    io.emit("online-players", getOnlinePlayers());
+    return;
+  }
   const player = index !== -1 ? room.players[index] : null;
   if (player) {
     player.roomCode = null;
@@ -381,11 +443,11 @@ function leaveRoomHandler(socket) {
     reversi.reset(room);
     io.to(other.id).emit("p2-left", player ? player.name : "A player");
   }
+  toSpectators(room, "spectate-reset");
   room.lastActivity = Date.now();
   socket.emit("room-left");
   if (!room.players.some(Boolean)) {
-    delete rooms[room.code];
-    console.log("Room " + room.code + " closed (empty).");
+    closeRoom(room);
   } else {
     toRoom(room, "room-update", getRoomView(room));
   }
@@ -653,23 +715,37 @@ io.on("connection", (socket) => {
   socket.on("disconnect", (message) => {
     let player = players.find((p) => p.id === socket.id);
     if (player) {
-      // If seated in a room, abandon any active game and tell the roommate.
+      // If seated in a room or watching it, handle their departure.
       const room = player.roomCode ? rooms[player.roomCode] : null;
       if (room) {
-        if (room.pizza.active) pizza.reset(room);
-        room.resetRequest = false;
-        reversi.reset(room);
-        if (room.gameOn) {
-          room.gameOn = false;
-          room.table = tictactoe.emptyTable();
-          room.virtualTable = tictactoe.emptyVirtualTable();
+        if (roomIndexOf(room, socket.id) === -1) {
+          // Spectator disconnected.
+          const si = room.spectators.indexOf(player);
+          if (si !== -1) {
+            room.spectators.splice(si, 1);
+            player.roomCode = null;
+            toRoom(room, "room-update", getRoomView(room));
+          }
+        } else {
+          if (room.pizza.active) pizza.reset(room);
+          room.resetRequest = false;
+          reversi.reset(room);
+          if (room.gameOn) {
+            room.gameOn = false;
+            room.table = tictactoe.emptyTable();
+            room.virtualTable = tictactoe.emptyVirtualTable();
+          }
+          const other = room.players.find((p) => p && p.id !== socket.id);
+          if (other) {
+            io.to(other.id).emit("p2-left", player.name);
+            io.to(other.id).emit("clear-table", "");
+          }
+          toSpectators(room, "spectate-reset");
+          toRoom(room, "room-update", getRoomView(room));
         }
-        const other = room.players.find((p) => p && p.id !== socket.id);
-        if (other) {
-          io.to(other.id).emit("p2-left", player.name);
-          io.to(other.id).emit("clear-table", "");
+        if (!room.players.some(Boolean)) {
+          closeRoom(room);
         }
-        toRoom(room, "room-update", getRoomView(room));
       }
       player.online = false;
       // Do not remove player from persistent storage on disconnect, keep their
@@ -771,7 +847,35 @@ io.on("connection", (socket) => {
     pizza.reset(room);
     reversi.reset(room);
     if (other) io.to(other.id).emit("p2-left", player.name);
+    toSpectators(room, "spectate-reset");
     toRoom(room, "room-update", getRoomView(room));
+  });
+
+  socket.on("take-seat", () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const player = players.find((p) => p.id === socket.id);
+    if (!player || roomIndexOf(room, socket.id) !== -1) return;
+    if (room.gameOn || room.pizza.active || room.reversi.active) {
+      socket.emit("server-warn", "Wait for the current game to end first.");
+      return;
+    }
+    const seat = findFreeSeat(room);
+    if (seat === -1) {
+      socket.emit("server-warn", "No empty seats right now.");
+      return;
+    }
+    const si = room.spectators.indexOf(player);
+    if (si !== -1) room.spectators.splice(si, 1);
+    room.players[seat] = player;
+    socket.emit("server-info", "You took a seat in the game!");
+    const other = room.players.find((p) => p && p.id !== socket.id);
+    if (other) {
+      io.to(other.id).emit("server-info", player.name + " took a seat!");
+    }
+    socket.emit("room-joined", { code: room.code, resuming: false });
+    toRoom(room, "room-update", getRoomView(room));
+    io.emit("online-players", getOnlinePlayers());
   });
 
   // -------- Pizza game handlers --------

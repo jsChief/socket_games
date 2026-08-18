@@ -7,7 +7,9 @@
 //   3. pizza starts independently in a second room
 //   4. reversi starts independently in a third room (flip + turn pass)
 //   5. an AI bot can be added as a second player and plays all three games
-//   6. leaving a room returns players to the lobby and closes empty rooms
+//   6. joining a full room puts you in spectator mode (live board, no
+//      private events, and you can take a freed seat)
+//   7. leaving a room returns players to the lobby and closes empty rooms
 //
 // Run with: node tests/rooms.e2e.js  (server must be safe to start on :3000)
 
@@ -409,6 +411,83 @@ async function run() {
   grace.emit("join-room", { code: codeD });
   const goneD = await waitEvent(grace, "room-error");
   assert(/not found/.test(goneD), "AI room is closed after everyone leaves");
+
+  // --- Spectator mode: join a full room and watch a live game ---
+  dave.emit("create-room");
+  const created5 = await waitEvent(dave, "room-created");
+  const codeE = created5.code;
+  eve.emit("join-room", { code: codeE });
+  await waitEvent(eve, "room-joined");
+  await waitEvent(eve, "room-update", (d) => d.players.length === 2);
+
+  dave.emit("select-game", { game: "tictactoe" });
+  eve.emit("select-game", { game: "tictactoe" });
+  const p2e = await waitEvent(dave, "player2");
+  const symD = p2e.symbol === "x" ? "o" : "x";
+  const turnD = await waitEvent(dave, "set-turn");
+  if (turnD.symbol === symD) {
+    dave.emit("btn-pos", { index: 4, symbol: turnD.symbol });
+  } else {
+    await waitEvent(dave, "click-btn");
+    const turnD2 = await waitEvent(dave, "set-turn");
+    dave.emit("btn-pos", { index: 4, symbol: turnD2.symbol });
+  }
+
+  // Grace joins the now-full room -> spectator, and instantly sees the board.
+  grace.emit("join-room", { code: codeE });
+  const specJoin = await waitEvent(grace, "room-joined");
+  assert(specJoin.spectator === true, "joining a full room makes you a spectator");
+  const specBoard1 = await waitEvent(grace, "spectate-tictactoe");
+  assert(
+    specBoard1.table[4] !== "" && specBoard1.gameOn === true,
+    "spectator receives the live board when joining",
+  );
+  console.log("  Grace is watching room " + codeE + ".");
+
+  // The next move reaches the spectator live.
+  const turnE = await waitEvent(eve, "set-turn");
+  eve.emit("btn-pos", { index: 0, symbol: turnE.symbol });
+  await waitEvent(grace, "spectate-tictactoe", (d) => d.table[0] !== "");
+  assert(true, "spectator sees the next move live");
+  await sleep(300);
+  assert(
+    !grace._inbox.some(
+      (m) =>
+        m.event === "click-btn" ||
+        m.event === "set-turn" ||
+        m.event === "player2" ||
+        m.event === "p2-turn",
+    ),
+    "spectator does not receive private player events",
+  );
+  assert(
+    !dave._inbox.some((m) => m.event === "spectate-tictactoe") &&
+      !eve._inbox.some((m) => m.event === "spectate-tictactoe"),
+    "players do not receive spectator events",
+  );
+  console.log("  Spectator watched tic-tac-toe live.");
+
+  // When a seated player leaves, the spectator can take the freed seat.
+  dave.emit("leave-room");
+  await waitEvent(dave, "room-left");
+  await waitEvent(eve, "p2-left");
+  const specReset = await waitEvent(grace, "spectate-reset");
+  assert(true, "spectator gets reset when the game is cancelled");
+  await waitEvent(grace, "room-update", (d) => d.players.length === 1);
+  grace.emit("take-seat");
+  const seated = await waitEvent(
+    grace,
+    "room-update",
+    (d) => d.players.length === 2 && d.players.some((p) => p.id === grace.id),
+  );
+  assert(!!seated && seated.openSeats === 0, "spectator can take a freed seat");
+  console.log("  Spectator took a seat.");
+
+  // Cleanup: the room closes once both remaining players leave.
+  eve.emit("leave-room");
+  await waitEvent(grace, "p2-left");
+  grace.emit("leave-room");
+  await waitEvent(grace, "room-left");
 
   // --- Empty room is closed once everyone leaves ---
   bob.emit("leave-room");
