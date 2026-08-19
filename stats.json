@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 30,
+  "gamesPlayed": 31,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -17,7 +17,7 @@
     },
     "7856e119-78b9-4125-b99e-134ddea0369d": {
       "wins": 0,
-      "losses": 0,
+      "losses": 1,
       "draws": 0,
       "name": "JamesO",
       "symbol": "x"
@@ -240,6 +240,18 @@
       "name": "Grace"
     },
     "ai-bot-NR3S": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "4f4aadd2-5081-41b2-ad88-d0852a87e235": {
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "name": "James Workspace"
+    },
+    "ai-bot-8CZT": {
       "wins": 0,
       "losses": 0,
       "draws": 0,

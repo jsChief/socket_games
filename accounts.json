@@ -29,6 +29,24 @@
       "salt": "70f3deda5034e6c391e4f29509654be8",
       "hash": "f5a34548bb6da52a056eae24c88c511b6196bfecb94e121454983dd1ceb1fad872cb32013511dbc91c884fd3f206a407f58e7124171a9e412853bb94b4afcdd3",
       "persistentUserId": "8bd77ce5-a0c1-4723-97cf-f9292dc01520"
+    },
+    "james workspace": {
+      "username": "James Workspace",
+      "salt": "6b744290ce62b80d9150342adde5de33",
+      "hash": "f269b832795d2fb3d6a79fdf9db86e7e1e1e766df7c6f82d4b5c5083f1b13a0099841a6f28ce021a6b8cc3d77e9f8e6270c5ff91aa453d6a74c06cf9bfd47fdd",
+      "persistentUserId": "4f4aadd2-5081-41b2-ad88-d0852a87e235"
+    },
+    "james wp": {
+      "username": "James wp",
+      "salt": "ffb7aefebacc5c910e38c51b880180b6",
+      "hash": "db05fbeac124ecd2b2596abce6b87aa299192a424d6a1b3589eac435643be7c3723737ba013db3a94b0444cfce25debb40031c1fe967aad027aef20c30f518b1",
+      "persistentUserId": "ee24eb3f-80df-4dfb-b214-b4e40a00357c"
+    },
+    "james chrome": {
+      "username": "James Chrome",
+      "salt": "ddf6808daf87a5607910223c9bdf5c33",
+      "hash": "f2e313762f1a717374b6e69f6f7483a56d2ff37f543ff39d61e45a4ecfee182b61c38893c2677062f149f19f5c583c8405ddb325f9340fb525fba4a4425141b4",
+      "persistentUserId": "7856e119-78b9-4125-b99e-134ddea0369d"
     }
   },
   "tokens": {
@@ -38,6 +56,9 @@
     "dbae809545f2a66a3a1ded77ddd44f96b1b10f8e56b7dfbbf6effa3a73ae246d": "pc360",
     "910f2e9781b1a3cc65d261f22e2961623edd90fb365025999c9c5041ee82c97f": "automate",
     "22b6603c24db3c72cc4edad38726d765c571e3b21d0d1cf3ca38015df91a99d4": "dark-tayo",
-    "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david"
+    "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david",
+    "520ae9551d1ceaf3438d1a97e86c06835db86ea9d74a7ac584b0ba572aed85cc": "james workspace",
+    "0126924bb103723e3e612365b89fd761502c8f462bc337063a9f4e5683a3073a": "james wp",
+    "1b06fcd75d1c7bffaab1f5aa4acaaeef51a58318c571fc182779e82c9c35bf11": "james chrome"
   }
 }
