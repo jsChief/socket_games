@@ -226,6 +226,24 @@
       "losses": 0,
       "draws": 0,
       "name": "AI Bot"
+    },
+    "ai-bot-HS4R": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "r-bot-a": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "Grace"
+    },
+    "ai-bot-NR3S": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
     }
   }
 }

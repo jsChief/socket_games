@@ -29,7 +29,7 @@ Vue.component("rps-view", {
                   return RPS_CHOICES;
             },
             handDisabled() {
-                  return this.phase !== "battle" || !!this.myPick;
+                  return this.phase !== "battle" || this.roundLocked;
             },
             roundStatus() {
                   if (this.phase === "idle") return "awaiting a game";
@@ -42,20 +42,20 @@ Vue.component("rps-view", {
             },
             statusColor() {
                   if (this.phase === "over") return "text-slate-800";
-                  if (this.myPick) return "text-orange-600";
+                  if (this.roundLocked) return "text-orange-600";
                   return "text-green-700";
             },
             myCardClass() {
                   if (this.phase !== "battle" || this.phase === "over")
                         return "bg-white/60 text-slate-900";
-                  if (this.myPick)
+                  if (this.roundLocked)
                         return "bg-green-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
                   return "bg-white/60 text-slate-900";
             },
             opponentCardClass() {
                   if (this.phase !== "battle" || this.phase === "over")
                         return "bg-white/60 text-slate-900";
-                  if (!this.myPick && this.opponentName)
+                  if (!this.roundLocked && this.opponentName)
                         return "bg-orange-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
                   return "bg-white/60 text-slate-900";
             },
@@ -79,6 +79,7 @@ Vue.component("rps-view", {
                   this.phase = "battle";
                   this.opponentName = data.opponentName || "";
                   this.winTarget = data.winTarget || 2;
+                  this.roundLocked = false;
                   this.status = "Throw your hand!";
             },
             syncState(data) {
@@ -91,15 +92,20 @@ Vue.component("rps-view", {
                   this.oppScore = data.oppScore || 0;
                   this.opponentName = data.opponentName || this.opponentName;
                   this.matchOver = data.result !== null;
-                  if (data.result) {
-                        this.result = data.result;
-                        this.status = "";
+                  if (data.active) {
+                        this.roundLocked = !!data.myPick;
+                        if (data.result) {
+                              this.result = data.result;
+                              this.status = "";
+                        } else {
+                              this.status = this.myPick
+                                    ? "Waiting for " +
+                                            (this.opponentName || "opponent") +
+                                            "..."
+                                    : "Throw your hand!";
+                        }
                   } else {
-                        this.status = this.myPick
-                              ? "Waiting for " +
-                                      (this.opponentName || "opponent") +
-                                      "..."
-                              : "Throw your hand!";
+                        this.roundLocked = true;
                   }
             },
             roundResult(data) {
@@ -110,6 +116,7 @@ Vue.component("rps-view", {
                   this.oppScore = data.oppScore;
                   this.round = data.round || this.round;
                   this.matchOver = data.matchOver;
+                  this.roundLocked = false;
                   if (data.roundWinner === "draw") {
                         this.status = "Round draw — throw again!";
                   } else if (data.roundWinner === "me") {
@@ -126,9 +133,10 @@ Vue.component("rps-view", {
                   }
             },
             pickHand(choice) {
-                  if (this.phase !== "battle" || this.myPick) return;
+                  if (this.phase !== "battle" || this.roundLocked) return;
                   this.oppPick = null;
                   this.myPick = choice;
+                  this.roundLocked = true;
                   this.status =
                         "Waiting for " + (this.opponentName || "opponent") + "...";
                   playSound(moveSound);
@@ -137,6 +145,7 @@ Vue.component("rps-view", {
             gameOver(data) {
                   this.phase = "over";
                   this.matchOver = true;
+                  this.roundLocked = true;
                   this.result = data.won ? "won" : "lost";
                   this.myScore = data.myScore;
                   this.oppScore = data.oppScore;
@@ -168,7 +177,7 @@ Vue.component("rps-view", {
             handClass(id) {
                   let c =
                         "rounded-2xl flex flex-col items-center justify-center gap-1 py-4 bg-white/60 shadow-xl transition-all duration-200 text-center select-none ";
-                  if (this.phase === "battle" && !this.myPick)
+                  if (this.phase === "battle" && !this.roundLocked)
                         c +=
                               "cursor-pointer hover:scale-105 hover:bg-orange-100 active:scale-95 ";
                   else
@@ -195,6 +204,7 @@ Vue.component("rps-view", {
                   this.rematchRequested = false;
                   this.rematchFromOpponent = false;
                   this.overlayDismissed = false;
+                  this.roundLocked = false;
             },
       },
       template: `
@@ -208,8 +218,8 @@ Vue.component("rps-view", {
                               class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
                               <div class="text-sm font-bold">You</div>
                               <div class="text-3xl font-black">{{ myScore }}</div>
-                              <div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
-                                    {{ myPick ? '✓ locked in' : '● pick a hand' }}
+<div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
+                                          {{ roundLocked ? '✓ locked in' : '● pick a hand' }}
                               </div>
                         </div>
                         <div :class="opponentCardClass"
@@ -218,8 +228,8 @@ Vue.component("rps-view", {
                                     {{ opponentName || "opponent" }}
                               </div>
                               <div class="text-3xl font-black">{{ oppScore }}</div>
-                              <div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
-                                    {{ myPick ? '… throwing' : 'waiting' }}
+<div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
+                                          {{ roundLocked ? '… throwing' : 'waiting' }}
                               </div>
                         </div>
                   </div>
