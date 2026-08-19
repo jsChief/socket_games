@@ -62,6 +62,7 @@ var app = new Vue({
                   if (this.$refs.tt) this.$refs.tt.resetView();
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
                   if (this.$refs.reversi) this.$refs.reversi.resetView();
+                  if (this.$refs.rps) this.$refs.rps.resetView();
             },
             leaveRoom() {
                   socket.emit("leave-room");
@@ -75,6 +76,7 @@ var app = new Vue({
                   if (this.$refs.tt) this.$refs.tt.resetView();
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
                   if (this.$refs.reversi) this.$refs.reversi.resetView();
+                  if (this.$refs.rps) this.$refs.rps.resetView();
                   if (this.$refs.spectator) this.$refs.spectator.reset();
                   if (this.$refs.room) this.$refs.room.reset();
             },
@@ -192,7 +194,7 @@ function connectSocket() {
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("authUsername", data.username || "");
             const saved = sessionStorage.getItem("view");
-            app.view = ["tictactoe", "pizza", "reversi", "spectator", "room"].includes(saved)
+            app.view = ["tictactoe", "pizza", "reversi", "rps", "spectator", "room"].includes(saved)
                   ? saved
                   : "lobby";
             if (app.$refs.auth) app.$refs.auth.reset();
@@ -244,6 +246,10 @@ function connectSocket() {
 
       socket.on("spectate-pizza", (data) => {
             if (app.$refs.spectator) app.$refs.spectator.handlePizza(data);
+      });
+
+      socket.on("spectate-rps", (data) => {
+            if (app.$refs.spectator) app.$refs.spectator.handleRps(data);
       });
 
       socket.on("spectate-reset", () => {
@@ -375,6 +381,35 @@ function connectSocket() {
             if (app.$refs.reversi) app.$refs.reversi.info(msg);
       });
 
+      // -------- Rock Paper Scissors game socket handlers --------
+      socket.on("rps-start", (data) => {
+            if (app.view === "lobby" || app.view === "room") {
+                  app.view = "rps";
+                  sessionStorage.setItem("view", "rps");
+            }
+            if (app.$refs.rps) app.$refs.rps.start(data);
+      });
+
+      socket.on("rps-round", (data) => {
+            if (app.$refs.rps) app.$refs.rps.roundResult(data);
+      });
+
+      socket.on("rps-game-over", (data) => {
+            if (app.$refs.rps) app.$refs.rps.gameOver(data);
+      });
+
+      socket.on("rps-rematch-request", () => {
+            if (app.$refs.rps) app.$refs.rps.rematchRequest();
+      });
+
+      socket.on("rps-info", (msg) => {
+            if (app.$refs.rps) app.$refs.rps.info(msg);
+      });
+
+      socket.on("rps-state", (data) => {
+            if (app.$refs.rps) app.$refs.rps.syncState(data);
+      });
+
       // -------- Lobby / connection helpers --------
       socket.on("player2", (data) => {
             app.opponent = data.name;
@@ -398,8 +433,9 @@ function connectSocket() {
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
             if (app.$refs.tt) app.$refs.tt.resetView();
             if (app.$refs.reversi) app.$refs.reversi.resetView();
+            if (app.$refs.rps) app.$refs.rps.resetView();
             showToast(name + " left", "error");
-            if (app.view === "tictactoe" || app.view === "pizza" || app.view === "reversi") {
+            if (app.view === "tictactoe" || app.view === "pizza" || app.view === "reversi" || app.view === "rps") {
                   app.view = "room";
                   sessionStorage.setItem("view", "room");
             }

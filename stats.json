@@ -196,6 +196,36 @@
       "losses": 1,
       "draws": 0,
       "name": "AI Bot"
+    },
+    "ai-bot-7YHV": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-MHGU": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "repro-b": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "B"
+    },
+    "repro-a": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "A"
+    },
+    "ai-bot-Q6VB": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
     }
   }
 }

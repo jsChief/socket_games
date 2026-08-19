@@ -170,7 +170,7 @@ Practice any game solo by adding an AI as the second player in a room.
 > **Status:** DONE. From the room screen, a player can pick a difficulty and
 > click "Add AI opponent"; the server spawns a real `socket.io-client`
 > connection (`lib/bot.js`) that joins the room as "AI Bot" and mirrors whatever
-> game you pick, so games start instantly. It plays all three games over the
+> game you pick, so games start instantly. It plays all four games over the
 > same socket protocol a human uses, at **Easy / Medium / Hard** difficulty
 > (`add-bot` payload, stored on the bot player and shown in the room UI):
 >
@@ -179,12 +179,13 @@ Practice any game solo by adding an AI as the second player in a room.
 > | Tic-Tac-Toe   | random with ~60% of wins / ~45% of blocks | always takes an immediate win & block, else random | perfect minimax |
 > | Reversi       | random legal move | greedy (flanks + corners/edges) | 2-ply maximin with corner/edge eval |
 > | Find My Pizza | clustered slices, pure-random attacks | random slices, neighbor-hunts after a hit | spread-out slices, exhausts hit neighbors + spaced scanning |
+> | Rock Paper Scissors | uniform random throw | uniform random throw | counters the opponent's last throw 65% of the time |
 >
 > It auto-accepts resets and
 > rematches, reacts with a short delay so moves are visible, cleans itself up
 > when the human leaves, and can be removed via "Remove AI". Served only to its
 > own room (per-room `persistentUserId`, excluded from the online players list)
-> and covered by e2e tests for all three games (including that the chosen
+> and covered by e2e tests for all four games (including that the chosen
 > difficulty is persisted on the bot player).
 
 ## 9. Spectator Mode (watch a live room) 👁
@@ -206,3 +207,20 @@ When both seats of a room are full, players who join by code watch the game live
 > coverage (join a full room → live board on join → moves broadcast live → no
 > private events leak to spectators / no spectate events leak to players →
 > taking a freed seat). A public game list (#4) is still a future enhancement.
+
+## 10. Rock Paper Scissors ✊
+
+Best-of-3 classic showdown, selectable from the room game cards.
+
+> **Status:** DONE. Game logic lives in `lib/rps.js` (per-room state with
+> simultaneous throws every round, first to 2 round-wins takes the match, draws
+> replay). The server wires it like the other games (`rps-start` /
+> `rps-round` / `rps-game-over` / `rps-pick` / `rps-rematch` /
+> `rps-rematch-request` / `rps-info` / `rps-state`), scoped per room with
+> reconnect resync (the opponent's pending throw stays hidden until the round
+> resolves). The `rps-view` component shows a live scoreboard, your hand vs a
+> hidden "?" opponent hand that reveals each round with a pop animation, and a
+> win/lose overlay with rematch. The AI bot throws for it (hard counters your
+> last throw). E2E coverage: RPS starts in its own room, rock beats scissors
+> with correct 2-0 match resolution for both players, rematch works, RPS events
+> never leak across rooms, and the bot throws a valid hand.

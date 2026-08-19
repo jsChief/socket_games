@@ -12,6 +12,7 @@ const createRooms = require("./lib/rooms");
 const createTicTacToeGame = require("./lib/tictactoe");
 const createPizza = require("./lib/pizza");
 const createReversi = require("./lib/reversi");
+const createRps = require("./lib/rps");
 const createBot = require("./lib/bot");
 
 const app = express();
@@ -178,6 +179,7 @@ const reversi = createReversi({
   stats,
   saveStats,
 });
+const rps = createRps({ io, toRoom, toSpectators, roomReady, roomIndexOf });
 const bot = createBot({
   players,
   getPort: () => {
@@ -202,6 +204,7 @@ function makeRoom(code, creatorId) {
     spectators: [], // watchers who joined after both seats were full
     pizza: pizza.makeState(),
     reversi: reversi.makeState(),
+    rps: rps.makeState(),
   };
 }
 
@@ -244,6 +247,7 @@ function connectPlayer(socket, data) {
         tictactoe.spectateTo(socket, room);
         pizza.spectateTo(socket, room);
         reversi.spectateTo(socket, room);
+        rps.spectateTo(socket, room);
       } else {
         socket.emit("room-joined", { code: room.code, resuming: true });
         if (idx !== -1) {
@@ -261,6 +265,7 @@ function connectPlayer(socket, data) {
           }
           if (room.pizza.active) pizza.resync(socket, room, idx);
           if (room.reversi && room.reversi.active) reversi.resync(socket, room, idx);
+          if (room.rps && room.rps.active) rps.resync(socket, room, idx);
         }
       }
       toRoom(room, "room-update", getRoomView(room));
@@ -441,6 +446,7 @@ function leaveRoomHandler(socket) {
     room.resetRequest = false;
     pizza.reset(room);
     reversi.reset(room);
+    rps.reset(room);
     io.to(other.id).emit("p2-left", player ? player.name : "A player");
   }
   toSpectators(room, "spectate-reset");
@@ -467,7 +473,7 @@ function getOnlinePlayers() {
 
 // Start the selected game when both seated players agree on one.
 function maybeStartSelectedGame(room) {
-  if (room.gameOn || room.pizza.active || room.reversi.active) return;
+  if (room.gameOn || room.pizza.active || room.reversi.active || room.rps.active) return;
   if (!room.players[0] || !room.players[1]) return;
   const p0 = room.players[0];
   const p1 = room.players[1];
@@ -476,6 +482,8 @@ function maybeStartSelectedGame(room) {
     pizza.startGame(room);
   } else if (p0.game === "reversi") {
     reversi.startGame(room);
+  } else if (p0.game === "rps") {
+    rps.startGame(room);
   } else {
     room.gameOn = true;
     tictactoe.startGame(room);
@@ -738,6 +746,7 @@ io.on("connection", (socket) => {
           if (room.pizza.active) pizza.reset(room);
           room.resetRequest = false;
           reversi.reset(room);
+          rps.reset(room);
           if (room.gameOn) {
             room.gameOn = false;
             room.table = tictactoe.emptyTable();
@@ -796,7 +805,8 @@ io.on("connection", (socket) => {
     if (
       gameId !== "tictactoe" &&
       gameId !== "pizza" &&
-      gameId !== "reversi"
+      gameId !== "reversi" &&
+      gameId !== "rps"
     )
       return;
     if (room.gameOn) {
@@ -809,6 +819,10 @@ io.on("connection", (socket) => {
     }
     if (room.reversi.active) {
       socket.emit("server-warn", "A Reversi game is already in progress.");
+      return;
+    }
+    if (room.rps.active) {
+      socket.emit("server-warn", "A Rock Paper Scissors game is already in progress.");
       return;
     }
     const player = room.players[index];
@@ -854,6 +868,7 @@ io.on("connection", (socket) => {
     }
     pizza.reset(room);
     reversi.reset(room);
+    rps.reset(room);
     if (other) io.to(other.id).emit("p2-left", player.name);
     toSpectators(room, "spectate-reset");
     toRoom(room, "room-update", getRoomView(room));
@@ -864,7 +879,7 @@ io.on("connection", (socket) => {
     if (!room) return;
     const player = players.find((p) => p.id === socket.id);
     if (!player || roomIndexOf(room, socket.id) !== -1) return;
-    if (room.gameOn || room.pizza.active || room.reversi.active) {
+    if (room.gameOn || room.pizza.active || room.reversi.active || room.rps.active) {
       socket.emit("server-warn", "Wait for the current game to end first.");
       return;
     }
@@ -911,6 +926,17 @@ io.on("connection", (socket) => {
   socket.on("reversi-rematch", () => {
     const room = getRoomForSocket(socket);
     if (room) reversi.rematch(socket, room);
+  });
+
+  // -------- Rock Paper Scissors game handlers --------
+  socket.on("rps-pick", (data) => {
+    const room = getRoomForSocket(socket);
+    if (room) rps.pick(socket, room, data);
+  });
+
+  socket.on("rps-rematch", () => {
+    const room = getRoomForSocket(socket);
+    if (room) rps.rematch(socket, room);
   });
 });
 

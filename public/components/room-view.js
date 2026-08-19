@@ -73,8 +73,8 @@ Vue.component("room-view", {
                               icon: "✊",
                               name: "Rock Paper Scissors",
                               desc: "Best of 3 classic showdown.",
-                              status: "Coming soon",
-                              disabled: true,
+                              status: "Available",
+                              disabled: false,
                         },
                         {
                               id: "reversi",

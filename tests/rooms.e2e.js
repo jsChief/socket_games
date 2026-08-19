@@ -6,10 +6,11 @@
 //   2. tic-tac-toe starts only in the room where both players picked it
 //   3. pizza starts independently in a second room
 //   4. reversi starts independently in a third room (flip + turn pass)
-//   5. an AI bot can be added as a second player and plays all three games
-//   6. joining a full room puts you in spectator mode (live board, no
+//   5. rock paper scissors starts in a fourth room (rounds + rematch)
+//   6. an AI bot can be added as a second player and plays all four games
+//   7. joining a full room puts you in spectator mode (live board, no
 //      private events, and you can take a freed seat)
-//   7. leaving a room returns players to the lobby and closes empty rooms
+//   8. leaving a room returns players to the lobby and closes empty rooms
 //
 // Run with: node tests/rooms.e2e.js  (server must be safe to start on :3000)
 
@@ -362,6 +363,104 @@ async function run() {
   frank.emit("leave-room");
   await waitEvent(frank, "room-left");
 
+  // --- Rock Paper Scissors starts independently (Eve + Frank, 4th room) ---
+  eve.emit("create-room");
+  const createdRps = await waitEvent(eve, "room-created");
+  const codeRps = createdRps.code;
+  assert(
+    codeRps !== codeA && codeRps !== codeB && codeRps !== codeC,
+    "RPS room has a different code",
+  );
+
+  frank.emit("join-room", { code: codeRps });
+  await waitEvent(frank, "room-joined");
+  await waitEvent(frank, "room-update", (d) => d.players.length === 2);
+
+  eve.emit("select-game", { game: "rps" });
+  frank.emit("select-game", { game: "rps" });
+  const [eveRps, frankRps] = await Promise.all([
+    waitEvent(eve, "rps-start"),
+    waitEvent(frank, "rps-start"),
+  ]);
+  assert(
+    /frank/i.test(eveRps.opponentName) && /eve/i.test(frankRps.opponentName),
+    "rps-start names the opponent for each player",
+  );
+  console.log("  Rock Paper Scissors started in room " + codeRps + ".");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "rps-start") &&
+      !bob._inbox.some((m) => m.event === "rps-start") &&
+      !carol._inbox.some((m) => m.event === "rps-start") &&
+      !dave._inbox.some((m) => m.event === "rps-start"),
+    "rps-start does not leak into rooms 1 and 2",
+  );
+
+  // Eve throws rock twice, Frank throws scissors twice -> Eve wins 2-0.
+  eve.emit("rps-pick", { choice: "rock" });
+  frank.emit("rps-pick", { choice: "scissors" });
+  const [round1eve, round1frank] = await Promise.all([
+    waitEvent(eve, "rps-round"),
+    waitEvent(frank, "rps-round"),
+  ]);
+  assert(
+    round1eve.myPick === "rock" && round1frank.myPick === "scissors",
+    "each player's throw is reflected in rps-round",
+  );
+  assert(
+    round1eve.roundWinner === "me" && round1frank.roundWinner === "opp",
+    "rock beats scissors in round 1",
+  );
+  assert(
+    round1eve.myScore === 1 && round1eve.matchOver === false,
+    "score is 1-0 after round 1 and the match continues",
+  );
+
+  eve.emit("rps-pick", { choice: "rock" });
+  frank.emit("rps-pick", { choice: "scissors" });
+  const [round2eve, round2frank, overEve, overFrank] = await Promise.all([
+    waitEvent(eve, "rps-round", (d) => d.round === 2),
+    waitEvent(frank, "rps-round", (d) => d.round === 2),
+    waitEvent(eve, "rps-game-over"),
+    waitEvent(frank, "rps-game-over"),
+  ]);
+  assert(
+    round2eve.matchOver === true && round2frank.matchOver === true,
+    "round 2 marks the match as over",
+  );
+  assert(
+    overEve.won === true && overEve.myScore === 2 && overEve.oppScore === 0,
+    "Eve wins the best-of-3 match 2-0",
+  );
+  assert(
+    overFrank.won === false && overFrank.myScore === 0 && overFrank.oppScore === 2,
+    "Frank loses the best-of-3 match 0-2",
+  );
+  assert(
+    !alice._inbox.some((m) => m.event === "rps-game-over") &&
+      !carol._inbox.some((m) => m.event === "rps-game-over"),
+    "rps-game-over does not leak across rooms",
+  );
+
+  // Rematch: Eve votes, Frank gets the request, both agree -> fresh match.
+  eve.emit("rps-rematch");
+  await waitEvent(frank, "rps-rematch-request");
+  frank.emit("rps-rematch");
+  await Promise.all([
+    waitEvent(eve, "rps-start"),
+    waitEvent(frank, "rps-start"),
+  ]);
+  assert(true, "both players can rematch and start a fresh RPS match");
+  console.log("  Rock Paper Scissors rematch started.");
+
+  // Leave room 4 cleanup (Eve + Frank).
+  eve.emit("leave-game");
+  eve.emit("leave-room");
+  await waitEvent(frank, "p2-left");
+  await waitEvent(eve, "room-left");
+  frank.emit("leave-room");
+  await waitEvent(frank, "room-left");
+
   // --- AI bot: added as a second player and plays tic-tac-toe + reversi ---
   grace.emit("create-room");
   const created4 = await waitEvent(grace, "room-created");
@@ -445,6 +544,50 @@ async function run() {
   );
   assert(true, "AI bot plays reversi");
   console.log("  AI bot played a reversi move.");
+
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "rps" });
+  await waitEvent(grace, "rps-start");
+  grace.emit("rps-pick", { choice: "rock" });
+  const rpsRound = await waitEvent(
+    grace,
+    "rps-round",
+    (d) => d.myPick === "rock" && d.oppPick !== null,
+  );
+  assert(
+    ["rock", "paper", "scissors"].includes(rpsRound.oppPick),
+    "AI bot throws a Rock Paper Scissors hand",
+  );
+  assert(true, "AI bot plays Rock Paper Scissors");
+  console.log("  AI bot played a Rock Paper Scissors round.");
+
+  // Finish a full best-of-3 match vs the AI (easy bot throws at random, so the
+  // match always ends quickly) and verify the bot auto-accepts the rematch.
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "rps" });
+  await waitEvent(grace, "rps-start");
+  let botMatchOver = false;
+  for (let i = 0; i < 20 && !botMatchOver; i++) {
+    grace.emit("rps-pick", { choice: "rock" });
+    const rr = await waitEvent(
+      grace,
+      "rps-round",
+      (d) => d.myPick === "rock",
+    );
+    botMatchOver = rr.matchOver;
+  }
+  assert(botMatchOver, "AI bot plays a full best-of-3 RPS match");
+  const botOver = await waitEvent(grace, "rps-game-over");
+  assert(
+    botOver.myScore === 2 || botOver.oppScore === 2,
+    "RPS match vs AI reaches 2 round wins",
+  );
+  grace.emit("rps-rematch");
+  await waitEvent(grace, "rps-start");
+  assert(true, "AI bot auto-rematches Rock Paper Scissors");
+  console.log("  AI bot finished an RPS match and auto-rematched.");
 
   // --- Leave the AI room -> the bot cleans itself up and the room closes ---
   grace.emit("leave-room");

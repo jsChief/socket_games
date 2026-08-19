@@ -36,6 +36,14 @@ Vue.component("spectator-view", {
                         attacked: [],
                         names: [],
                   },
+                  rps: {
+                        active: false,
+                        round: 0,
+                        picks: [],
+                        wins: [0, 0],
+                        result: null,
+                        names: [],
+                  },
                   winLine: null,
             };
       },
@@ -55,6 +63,7 @@ Vue.component("spectator-view", {
                   if (this.game === "tictactoe") return !this.ttt.gameOn;
                   if (this.game === "reversi") return this.rev.over;
                   if (this.game === "pizza") return this.pizza.phase === "over";
+                  if (this.game === "rps") return this.rps.result !== null;
                   return false;
             },
             currentTurnIndex() {
@@ -78,7 +87,9 @@ Vue.component("spectator-view", {
                                     ? this.rev.names
                                     : this.game === "pizza"
                                           ? this.pizza.names
-                                          : null;
+                                          : this.game === "rps"
+                                                ? this.rps.names
+                                                : null;
                   const symbols =
                         this.game === "tictactoe"
                               ? this.ttt.symbols
@@ -117,6 +128,10 @@ Vue.component("spectator-view", {
                               (this.pizza.names[this.pizza.turn] || "Player") +
                               " is hunting for slices 🍕"
                         );
+                  }
+                  if (this.game === "rps") {
+                        if (over) return "Game over — Rock Paper Scissors";
+                        return "Both players are throwing ✊✋✌";
                   }
                   return "Waiting for a game to start...";
             },
@@ -170,6 +185,23 @@ Vue.component("spectator-view", {
                         names: d.names || [],
                   };
                   this.winLine = null;
+            },
+            handleRps(d) {
+                  this.game = "rps";
+                  this.rps = {
+                        active: !!d.active,
+                        round: d.round || 0,
+                        picks: d.picks || [],
+                        wins: d.wins || [0, 0],
+                        history: d.history || [],
+                        result: d.result,
+                        names: d.names || [],
+                  };
+                  this.winLine = null;
+            },
+            rpsIcon(choice) {
+                  const icons = { rock: "✊", paper: "✋", scissors: "✌️" };
+                  return icons[choice] || "❔";
             },
             handleReset() {
                   this.game = null;
@@ -229,6 +261,14 @@ Vue.component("spectator-view", {
                         attacked: [],
                         names: [],
                   };
+                  this.rps = {
+                        active: false,
+                        round: 0,
+                        picks: [],
+                        wins: [0, 0],
+                        result: null,
+                        names: [],
+                  };
             },
       },
       template: `
@@ -237,7 +277,7 @@ Vue.component("spectator-view", {
                         👁 Spectator · Room {{ code }}
                   </p>
                   <p class="mt-1 text-center text-xs text-slate-600 bg-white/60 rounded-xl py-1">
-                        {{ spectatorCount }} watching · Tic Tac Toe / Pizza / Reversi are live right here
+                        {{ spectatorCount }} watching · Tic Tac Toe / Pizza / Reversi / RPS are live right here
                   </p>
 
                   <div class="mt-2 grid grid-cols-2 gap-2">
@@ -314,6 +354,31 @@ Vue.component("spectator-view", {
                         <p class="text-center text-[11px] text-slate-500 mt-1">
                               🍕 = found slice · · = empty probe · blank = not yet probed
                         </p>
+                  </div>
+
+                  <!-- Rock Paper Scissors: live hands + score -->
+                  <div v-if="game === 'rps'" class="md:w-2/3 w-full mx-auto mt-3">
+                        <div class="rounded-2xl p-3 bg-white/70 backdrop-blur shadow-xl">
+                              <div class="grid grid-cols-2 gap-2 text-center items-center">
+                                    <div>
+                                          <p class="text-xs font-bold text-slate-600 truncate">
+                                                {{ rps.names[0] || 'Player 1' }}
+                                          </p>
+                                          <div class="text-5xl" :class="rps.picks[0] ? 'rps-pop' : 'opacity-40'">{{ rpsIcon(rps.picks[0]) }}</div>
+                                          <div class="text-2xl font-black text-slate-800">{{ rps.wins[0] }}</div>
+                                    </div>
+                                    <div>
+                                          <p class="text-xs font-bold text-slate-600 truncate">
+                                                {{ rps.names[1] || 'Player 2' }}
+                                          </p>
+                                          <div class="text-5xl" :class="rps.picks[1] ? 'rps-pop' : 'opacity-40'">{{ rpsIcon(rps.picks[1]) }}</div>
+                                          <div class="text-2xl font-black text-slate-800">{{ rps.wins[1] }}</div>
+                                    </div>
+                              </div>
+                              <p class="text-center text-xs text-slate-500 mt-2">
+                                    Round {{ rps.round }} · first to 2 round wins takes the match
+                              </p>
+                        </div>
                   </div>
 
                   <div class="mt-3 flex gap-2 justify-center pb-4">
