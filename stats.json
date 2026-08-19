@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 26,
+  "gamesPlayed": 30,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -100,14 +100,14 @@
       "symbol": "o"
     },
     "d97e9895-ad6c-4578-8ae3-26d2e898965b": {
-      "wins": 5,
+      "wins": 6,
       "losses": 7,
-      "draws": 0,
+      "draws": 2,
       "name": "pc360",
       "symbol": "o"
     },
     "ff62319f-1a1d-449f-ac8d-bd3727b42b48": {
-      "wins": 8,
+      "wins": 9,
       "losses": 6,
       "draws": 2,
       "name": "James O",
@@ -164,6 +164,36 @@
     "ai-bot-6JGM": {
       "wins": 1,
       "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-S5KJ": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 1,
+      "name": "AI Bot"
+    },
+    "ai-bot-CMFR": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-4H7N": {
+      "wins": 0,
+      "losses": 1,
+      "draws": 1,
+      "name": "AI Bot"
+    },
+    "ai-bot-A8P8": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-C4A6": {
+      "wins": 0,
+      "losses": 1,
       "draws": 0,
       "name": "AI Bot"
     }

@@ -17,6 +17,8 @@ var app = new Vue({
             socketId: "",
             connectionStatus: "connecting", // connecting | connected | disconnected
             hasNewMessage: false,
+            theme: localStorage.getItem("gameTheme") || "sunset",
+            mode: localStorage.getItem("gameMode") === "dark" ? "dark" : "light",
       },
       methods: {
             openChat() {
@@ -28,11 +30,24 @@ var app = new Vue({
                   if (this.$refs.chat) this.$refs.chat.close();
                   socket.emit("select-game", { game: g.id });
             },
-            addBot() {
-                  socket.emit("add-bot");
+            addBot(difficulty) {
+                  socket.emit("add-bot", { difficulty: difficulty || "medium" });
             },
             removeBot() {
                   socket.emit("remove-bot");
+            },
+            setTheme(themeId) {
+                  const themes = ["sunset", "midnight", "forest", "ocean"];
+                  if (themes.indexOf(themeId) === -1) return;
+                  this.theme = themeId;
+                  localStorage.setItem("gameTheme", themeId);
+                  document.documentElement.setAttribute("data-theme", themeId);
+            },
+            setMode(mode) {
+                  if (mode !== "light" && mode !== "dark") return;
+                  this.mode = mode;
+                  localStorage.setItem("gameMode", mode);
+                  document.documentElement.setAttribute("data-mode", mode);
             },
             backToRoom() {
                   if (this.view === "spectator") {

@@ -5,6 +5,12 @@ Vue.component("room-view", {
       data() {
             return {
                   room: null,
+                  botDifficulty: "medium",
+                  difficulties: [
+                        { id: "easy", name: "😌 Easy" },
+                        { id: "medium", name: "😐 Medium" },
+                        { id: "hard", name: "😈 Hard" },
+                  ],
                   games: [
                         {
                               id: "tictactoe",
@@ -101,6 +107,16 @@ Vue.component("room-view", {
             hasBot() {
                   return this.players.some((p) => p && p.isBot);
             },
+            botPlayer() {
+                  return this.players.find((p) => p && p.isBot) || null;
+            },
+            botDifficultyName() {
+                  if (!this.botPlayer || !this.botPlayer.difficulty) return "";
+                  const d = this.difficulties.find(
+                        (x) => x.id === this.botPlayer.difficulty,
+                  );
+                  return d ? d.name : this.botPlayer.difficulty;
+            },
       },
       methods: {
             setRoom(data) {
@@ -181,19 +197,27 @@ Vue.component("room-view", {
                                     <span>Waiting for player {{ players.length + n }}...</span>
                               </div>
                         </div>
-                        <div class="mt-2 flex items-center gap-2">
-                              <button v-if="openSeats > 0 && !hasBot" @click="$emit('add-bot')"
+                        <div v-if="openSeats > 0 && !hasBot" class="mt-2 flex flex-col items-start gap-1">
+                              <div class="flex items-center gap-1 rounded-xl bg-white/40 p-1">
+                                    <button v-for="d in difficulties" :key="d.id" @click="botDifficulty = d.id"
+                                          :title="'Play against ' + d.id + ' AI'"
+                                          class="px-2 py-1 rounded-lg text-xs font-bold transition-all duration-300"
+                                          :class="botDifficulty === d.id ? 'bg-indigo-600 text-white shadow' : 'opacity-70 hover:opacity-100'">
+                                          {{ d.name }}
+                                    </button>
+                              </div>
+                              <button @click="$emit('add-bot', botDifficulty)"
                                     class="rounded-xl px-3 py-1.5 bg-indigo-600 text-white text-sm font-bold shadow-xl hover:scale-105 active:scale-95 transition-all">
                                     🤖 Add AI opponent
                               </button>
-                              <div v-else-if="hasBot"
-                                    class="flex items-center gap-2 text-sm bg-white/50 rounded-xl px-3 py-1.5">
-                                    <span class="font-bold">🤖 AI Bot is ready</span>
-                                    <button @click="$emit('remove-bot')"
-                                          class="text-red-600 font-bold text-xs underline">
-                                          Remove AI
-                                    </button>
-                              </div>
+                        </div>
+                        <div v-else-if="hasBot"
+                              class="mt-2 flex items-center gap-2 text-sm bg-white/50 rounded-xl px-3 py-1.5">
+                              <span class="font-bold">🤖 AI Bot is ready · {{ botDifficultyName }}</span>
+                              <button @click="$emit('remove-bot')"
+                                    class="text-red-600 font-bold text-xs underline">
+                                    Remove AI
+                              </button>
                         </div>
                         <p v-if="hasBot" class="text-xs text-slate-500 mt-1">
                               The AI automatically plays the game you pick.

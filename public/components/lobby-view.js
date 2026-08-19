@@ -3,15 +3,31 @@ Vue.component("lobby-view", {
     myName: { type: String, default: "" },
     connectionStatus: { type: String, default: "connecting" },
     socketId: { type: String, default: "" },
+    theme: { type: String, default: "sunset" },
+    mode: { type: String, default: "light" },
   },
   data() {
     return {
       onlinePlayers: [],
       joinCode: "",
       busy: false,
+      themes: [
+            { id: "sunset", name: "Sunset", emoji: "🌇", swatch: ["#fbbf24", "#f97316"] },
+            { id: "midnight", name: "Midnight", emoji: "🌙", swatch: ["#8b5cf6", "#312e81"] },
+            { id: "forest", name: "Forest", emoji: "🌲", swatch: ["#84cc16", "#15803d"] },
+            { id: "ocean", name: "Ocean", emoji: "🌊", swatch: ["#22d3ee", "#0f766e"] },
+      ],
+      modes: [
+            { id: "light", name: "Light", emoji: "☀️" },
+            { id: "dark", name: "Dark", emoji: "🌙" },
+      ],
     };
   },
   computed: {
+    activeThemeName() {
+      const t = this.themes.find((t) => t.id === this.theme);
+      return t ? t.name : "Sunset";
+    },
     connectionStatusText() {
       if (this.connectionStatus === "connected") return "Connected";
       if (this.connectionStatus === "disconnected") return "Disconnected";
@@ -46,6 +62,12 @@ Vue.component("lobby-view", {
       const code = this.joinCode.trim();
       if (!code) return;
       socket.emit("join-room", { code });
+    },
+    applyTheme(themeId) {
+      this.$emit("theme-changed", themeId);
+    },
+    applyMode(mode) {
+      this.$emit("mode-changed", mode);
     },
   },
   template: `
@@ -112,6 +134,36 @@ Vue.component("lobby-view", {
                         </p>
                   </div>
                   
+                  </div>
+
+                  <!-- Theme picker -->
+                  <div class="mt-3 rounded-2xl p-3 w-full md:w-fit bg-white/50 backdrop-blur shadow-xl">
+                        <div class="flex items-center justify-between gap-3 px-1">
+                              <p class="text-sm font-bold">🎨 Theme</p>
+                              <p class="text-xs font-bold text-orange-600">{{ activeThemeName }}</p>
+                        </div>
+                        <div class="mt-2 flex gap-2">
+                              <button v-for="t in themes" :key="t.id" @click="applyTheme(t.id)"
+                                    :title="t.name"
+                                    class="size-12 rounded-2xl flex items-center justify-center text-xl shadow-inner transition-all duration-300"
+                                    :class="theme === t.id ? 'ring-4 ring-white scale-110 shadow-lg' : 'opacity-70 hover:opacity-100 hover:scale-105'"
+                                    :style="'background: linear-gradient(135deg, ' + t.swatch[0] + ', ' + t.swatch[1] + ')'">
+                                    <span>{{ t.emoji }}</span>
+                              </button>
+                        </div>
+                        <div class="mt-3 flex items-center gap-2">
+                              <p class="text-xs font-bold text-slate-600">Mode</p>
+                              <div class="flex rounded-2xl bg-white/40 p-1 gap-1">
+                                    <button v-for="m in modes" :key="m.id" @click="applyMode(m.id)"
+                                          class="px-3 py-1.5 rounded-xl text-sm font-bold transition-all duration-300"
+                                          :class="mode === m.id ? 'bg-orange-600 text-white shadow' : 'opacity-70 hover:opacity-100'">
+                                          <span>{{ m.emoji }} {{ m.name }}</span>
+                                    </button>
+                              </div>
+                        </div>
+                        <p class="mt-2 text-[11px] text-slate-500">
+                              Your theme and light/dark mode are saved on this device.
+                        </p>
                   </div>
 
                   

@@ -74,6 +74,44 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
 
 *   **Theme Selection:** Allow players to choose different visual themes for the game board and UI.
 
+> **Status:** DONE. There are now 4 switchable themes — **Sunset** (default),
+> **Midnight**, **Forest** and **Ocean** — chosen from the lobby's "🎨 Theme"
+> card (swatch buttons + live name). The choice is saved to
+> `localStorage["gameTheme"]` and applied before first paint via a tiny inline
+> script in `index.html`, so there's no flash of the wrong theme.
+>
+> How it works: the app styles itself with Tailwind v4 browser utilities
+> (`src/TW4.js`), which compile color classes (`bg-slate-900`, `bg-orange-600`,
+> `text-white`, …) against the `--color-*` custom properties they emit on
+> `:root`. Each theme in `public/themes.css` re-defines those tokens under
+> `html[data-theme="…"]`, so the boards, panels, marks and buttons recolor
+> everywhere with zero component markup changes. X/O marks and buttons follow
+> each theme's accent (violet/cyan for Midnight, amber/lime for Forest,
+> coral/blue for Ocean), boards shift to a theme-tinted slate, and the window
+> backdrop gets its own wash. Status colors (win/lose/warn) stay recognizable.
+>
+> **Dark mode:** a ☀️ Light / 🌙 Dark toggle sits under the swatches. Because a
+> token like `--color-white` is shared by light glass panels *and* by white
+> text/pieces that must stay white (buttons, reversi discs), dark mode can't be
+> a plain token swap. Instead `themes.css` remaps the specific Tailwind classes
+> that mean "light glass panel" (`bg-white/40…/95`) and "dark text on a panel"
+> (`text-slate-500…900`, `text-black`) to night equivalents, and darkens the
+> small light chips (orange/yellow/red/blue 100s) into tinted night chips. Boards,
+> colored buttons and game pieces are left untouched. Each palette theme gets its
+> own near-black backdrop (e.g. warm brown for Sunset, indigo-black for Midnight),
+> the default text color flips to light so inherited text still reads, and the
+> choice persists per device in `localStorage["gameMode"]` with the same no-flash
+> pre-render script.
+>
+> **SVG backgrounds:** the old `Textiles.png` photo was replaced with two
+> hand-drawn SVG table tops in `public/images/`: `bg-light.svg` (soft washes,
+> game-board tile texture, scattered X/O, dice, coins, pawns and sparkles) and
+> `bg-dark.svg` (nebula washes over a dotted star-grid, neon glowing pieces and a
+> vignette). They're layered under the per-theme wash color, so switching theme
+> or light/dark mode changes both the color and the texture.
+>
+> Future ideas: board skins per game, and custom accent-color picking.
+
 ## 6. Game Rooms (implemented ✅)
 
 Currently the whole app is a single 2-player table: two players join, pick a game, and play. Game rooms would let several players be online at once while playing in separate, independent games.
@@ -129,16 +167,25 @@ A full two-player Reversi game, selectable from the room game cards.
 
 Practice any game solo by adding an AI as the second player in a room.
 
-> **Status:** DONE. From the room screen, a player can click "Add AI opponent";
-> the server spawns a real `socket.io-client` connection (`lib/bot.js`) that
-> joins the room as "AI Bot" and mirrors whatever game you pick, so games start
-> instantly. It plays all three games over the same socket protocol a human
-> uses: perfect minimax for Tic-Tac-Toe, a flanks + corners greedy for Reversi,
-> and hide-and-hunt placement for Find My Pizza. It auto-accepts resets and
+> **Status:** DONE. From the room screen, a player can pick a difficulty and
+> click "Add AI opponent"; the server spawns a real `socket.io-client`
+> connection (`lib/bot.js`) that joins the room as "AI Bot" and mirrors whatever
+> game you pick, so games start instantly. It plays all three games over the
+> same socket protocol a human uses, at **Easy / Medium / Hard** difficulty
+> (`add-bot` payload, stored on the bot player and shown in the room UI):
+>
+> | Game          | Easy | Medium | Hard |
+> |---------------|------|--------|------|
+> | Tic-Tac-Toe   | random with ~60% of wins / ~45% of blocks | always takes an immediate win & block, else random | perfect minimax |
+> | Reversi       | random legal move | greedy (flanks + corners/edges) | 2-ply maximin with corner/edge eval |
+> | Find My Pizza | clustered slices, pure-random attacks | random slices, neighbor-hunts after a hit | spread-out slices, exhausts hit neighbors + spaced scanning |
+>
+> It auto-accepts resets and
 > rematches, reacts with a short delay so moves are visible, cleans itself up
 > when the human leaves, and can be removed via "Remove AI". Served only to its
 > own room (per-room `persistentUserId`, excluded from the online players list)
-> and covered by e2e tests for all three games.
+> and covered by e2e tests for all three games (including that the chosen
+> difficulty is persisted on the bot player).
 
 ## 9. Spectator Mode (watch a live room) 👁
 

@@ -642,7 +642,7 @@ io.on("connection", (socket) => {
   });
 
   // -------- AI bot handlers --------
-  socket.on("add-bot", () => {
+  socket.on("add-bot", (data) => {
     const room = getRoomForSocket(socket);
     if (!room) {
       socket.emit("server-warn", "Join or create a room first to add an AI.");
@@ -657,8 +657,16 @@ io.on("connection", (socket) => {
       socket.emit("server-warn", "The room is already full.");
       return;
     }
-    if (bot.addBot(room)) {
-      socket.emit("server-info", "AI Bot is joining your room...");
+    const difficulty = ["easy", "medium", "hard"].includes(
+      data && data.difficulty,
+    )
+      ? data.difficulty
+      : "medium";
+    if (bot.addBot(room, difficulty)) {
+      socket.emit(
+        "server-info",
+        "AI Bot (" + difficulty + ") is joining your room...",
+      );
     } else {
       socket.emit("server-warn", "An AI is already joining this room.");
     }

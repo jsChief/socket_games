@@ -1,0 +1,264 @@
+/*!
+ * Theme + light/dark mode styling for the whole app.
+ *
+ * The UI is styled with Tailwind v4 browser utilities (see src/TW4.js), which
+ * compile color classes like `bg-slate-900` / `bg-orange-600/90` / `text-white`
+ * against the `--color-*` custom properties emitted on `:root`. Each palette
+ * theme below re-defines those tokens under `html[data-theme="…"]`, so the
+ * boards, panels, marks and buttons recolor everywhere with zero markup
+ * changes. Status colors (red / green / yellow / emerald / indigo) intentionally
+ * stay close to Tailwind defaults so win/lose/warn states stay recognizable.
+ *
+ * `data-theme` + `data-mode` are set on <html> by an inline script in
+ * index.html before paint (from localStorage "gameTheme" / "gameMode") and
+ * changed live from the lobby picker.
+ *
+ * Dark mode (`html[data-mode="dark"]`) can't be done with token swaps alone,
+ * because a token like `--color-white` is shared by light glass panels AND by
+ * white text/icons that must STAY white (e.g. on colored buttons or the reversi
+ * discs). So dark mode remaps the specific Tailwind classes that represent
+ * "light glass panel" and "dark text on a panel" to their night equivalents —
+ * the boards, colored buttons and game pieces are left untouched.
+ *
+ * Backgrounds are hand-drawn SVG table tops (images/bg-light.svg for light
+ * mode, images/bg-dark.svg for dark mode) layered over a per-theme wash color,
+ * replacing the old Textiles.png photograph.
+ */
+
+/* ---------------------------------------------------------------- Base ---- */
+/* The light SVG texture sits under every palette theme's translucent wash.   */
+body {
+  background-image: url("./images/bg-light.svg");
+}
+
+/* ---------------------------------------------------------------- Sunset -- */
+/* The default look: warm yellow backdrop, slate boards, orange/sky marks.    */
+html[data-theme="sunset"] body {
+  background-color: rgba(255, 193, 7, 0.3);
+}
+
+/* ---------------------------------------------------------------- Midnight */
+html[data-theme="midnight"] body {
+  background-color: rgba(38, 30, 70, 0.6);
+}
+html[data-theme="midnight"] {
+  --color-white: #f4f1fb;
+  --color-slate-300: #cbc4e0;
+  --color-slate-400: #a9a0c7;
+  --color-slate-500: #8980ac;
+  --color-slate-600: #6a6190;
+  --color-slate-700: #504874;
+  --color-slate-800: #3a3360;
+  --color-slate-900: #2b2550;
+  --color-gray-200: #d7d1e6;
+  --color-neutral-400: #a69ec2;
+  --color-neutral-500: #857da6;
+  --color-orange-100: #f0e9ff;
+  --color-orange-200: #e4d8ff;
+  --color-orange-400: #a78bfa;
+  --color-orange-500: #8b5cf6;
+  --color-orange-600: #7c3aed;
+  --color-orange-700: #6d28d9;
+  --color-sky-500: #06b6d4;
+}
+
+/* ---------------------------------------------------------------- Forest --- */
+html[data-theme="forest"] body {
+  background-color: rgba(46, 125, 50, 0.28);
+}
+html[data-theme="forest"] {
+  --color-white: #f6faf3;
+  --color-slate-300: #bad3c1;
+  --color-slate-400: #8fae9a;
+  --color-slate-500: #6b9179;
+  --color-slate-600: #4d7560;
+  --color-slate-700: #385946;
+  --color-slate-800: #27402f;
+  --color-slate-900: #1a3324;
+  --color-gray-200: #d5e2d7;
+  --color-neutral-400: #a3b6a7;
+  --color-neutral-500: #879b8b;
+  --color-orange-100: #fdeeda;
+  --color-orange-200: #fde5c3;
+  --color-orange-400: #fbbf24;
+  --color-orange-500: #f59e0b;
+  --color-orange-600: #d97706;
+  --color-orange-700: #b45309;
+  --color-sky-500: #65a30d;
+}
+
+/* ---------------------------------------------------------------- Ocean ---- */
+html[data-theme="ocean"] body {
+  background-color: rgba(3, 105, 161, 0.28);
+}
+html[data-theme="ocean"] {
+  --color-white: #f2f8fb;
+  --color-slate-300: #a9d2e4;
+  --color-slate-400: #77aec7;
+  --color-slate-500: #558fa9;
+  --color-slate-600: #3c728c;
+  --color-slate-700: #285a73;
+  --color-slate-800: #1c455b;
+  --color-slate-900: #14364a;
+  --color-gray-200: #d7e7ee;
+  --color-neutral-400: #9fb4c2;
+  --color-neutral-500: #8097a7;
+  --color-orange-100: #ffe4e6;
+  --color-orange-200: #ffcbd3;
+  --color-orange-400: #fb7185;
+  --color-orange-500: #f43f5e;
+  --color-orange-600: #e11d48;
+  --color-orange-700: #be123c;
+  --color-sky-500: #3b82f6;
+}
+
+/* ============================================================ DARK MODE ==== */
+/* Night backdrop: the dark SVG texture + a per-theme near-black wash, and a  */
+/* light default text color for everything that inherits its text color.     */
+
+html[data-mode="dark"] body {
+  background-image: url("./images/bg-dark.svg");
+  background-color: #0f1226;
+  color: #e2e8f0;
+}
+
+html[data-mode="dark"][data-theme="sunset"] body {
+  background-color: #22170f;
+}
+html[data-mode="dark"][data-theme="midnight"] body {
+  background-color: #120f2b;
+}
+html[data-mode="dark"][data-theme="forest"] body {
+  background-color: #0e1f15;
+}
+html[data-mode="dark"][data-theme="ocean"] body {
+  background-color: #0a1626;
+}
+
+/* Inputs inherit the light text color; keep placeholders muted. */
+html[data-mode="dark"] ::placeholder {
+  color: #64748b;
+}
+
+/* ---- Light glass panels → dark glass ---- */
+html[data-mode="dark"] .bg-white\/40 {
+  background-color: rgba(30, 41, 59, 0.42);
+}
+html[data-mode="dark"] .bg-white\/50 {
+  background-color: rgba(30, 41, 59, 0.52);
+}
+html[data-mode="dark"] .bg-white\/60 {
+  background-color: rgba(30, 41, 59, 0.62);
+}
+html[data-mode="dark"] .bg-white\/70 {
+  background-color: rgba(30, 41, 59, 0.72);
+}
+html[data-mode="dark"] .bg-white\/80 {
+  background-color: rgba(30, 41, 59, 0.82);
+}
+html[data-mode="dark"] .bg-white\/90 {
+  background-color: rgba(30, 41, 59, 0.9);
+}
+html[data-mode="dark"] .bg-white\/95 {
+  background-color: rgba(30, 41, 59, 0.95);
+}
+/* Overlays / subtle pills that were faint white (chat scrim, restart buttons) */
+html[data-mode="dark"] .bg-white\/20 {
+  background-color: rgba(15, 23, 42, 0.28);
+}
+html[data-mode="dark"] .bg-white\/30 {
+  background-color: rgba(15, 23, 42, 0.42);
+}
+/* `bg-white` (reversi discs) and `bg-white/10` (board cells) are intentionally
+   left alone so discs stay white and faint cells stay faint. */
+
+/* ---- Faint borders/rings → night borders ---- */
+html[data-mode="dark"] .border-white\/40 {
+  border-color: rgba(148, 163, 184, 0.28);
+}
+html[data-mode="dark"] .border-slate-200 {
+  border-color: #334155;
+}
+html[data-mode="dark"] .border-slate-300 {
+  border-color: #475569;
+}
+html[data-mode="dark"] .ring-slate-300 {
+  border-color: #475569;
+}
+
+/* ---- Dark text on panels → light text ---- */
+html[data-mode="dark"] .text-slate-400,
+html[data-mode="dark"] .text-slate-500 {
+  color: #94a3b8;
+}
+html[data-mode="dark"] .text-slate-600 {
+  color: #a8b6c9;
+}
+html[data-mode="dark"] .text-slate-700 {
+  color: #cbd5e1;
+}
+html[data-mode="dark"] .text-slate-800,
+html[data-mode="dark"] .text-slate-900,
+html[data-mode="dark"] .text-black {
+  color: #e2e8f0;
+}
+/* Accent status text keeps its hue but lightens for contrast. */
+html[data-mode="dark"] .text-orange-600 {
+  color: #fb923c;
+}
+html[data-mode="dark"] .text-orange-700 {
+  color: #fdba74;
+}
+html[data-mode="dark"] .text-red-600 {
+  color: #f87171;
+}
+html[data-mode="dark"] .text-green-700 {
+  color: #4ade80;
+}
+html[data-mode="dark"] .text-yellow-600 {
+  color: #facc15;
+}
+html[data-mode="dark"] .text-blue-500 {
+  color: #60a5fa;
+}
+
+/* ---- Small light chips/tags → tinted night chips ---- */
+html[data-mode="dark"] .bg-orange-100,
+html[data-mode="dark"] .bg-orange-100\/90 {
+  background-color: rgba(124, 45, 18, 0.55);
+}
+html[data-mode="dark"] .bg-orange-200 {
+  background-color: rgba(154, 52, 18, 0.55);
+}
+html[data-mode="dark"] .bg-yellow-100 {
+  background-color: rgba(113, 63, 18, 0.5);
+}
+html[data-mode="dark"] .bg-yellow-200,
+html[data-mode="dark"] .bg-yellow-200\/80 {
+  background-color: rgba(113, 63, 18, 0.58);
+}
+html[data-mode="dark"] .bg-yellow-300,
+html[data-mode="dark"] .bg-yellow-300\/90 {
+  background-color: rgba(161, 98, 7, 0.68);
+}
+/* Win-cell highlight (`bg-yellow-400 text-slate-900`): darken it so the
+   lightened text stays readable on the glowing cell. */
+html[data-mode="dark"] .bg-yellow-400 {
+  background-color: #a16207;
+}
+html[data-mode="dark"] .bg-red-100 {
+  background-color: rgba(127, 29, 29, 0.55);
+}
+html[data-mode="dark"] .bg-red-200 {
+  background-color: rgba(127, 29, 29, 0.6);
+}
+html[data-mode="dark"] .bg-red-300 {
+  background-color: rgba(153, 27, 27, 0.65);
+}
+html[data-mode="dark"] .bg-blue-100 {
+  background-color: rgba(30, 58, 138, 0.55);
+}
+html[data-mode="dark"] .bg-gray-200,
+html[data-mode="dark"] .bg-slate-300 {
+  background-color: #475569;
+}

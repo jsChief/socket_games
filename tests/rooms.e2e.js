@@ -80,6 +80,37 @@ function waitEvent(s, event, predicate, timeout) {
   });
 }
 
+// Wait for the first of several events across one or more sockets. This is a
+// single poller (unlike Promise.race over several waitEvent calls), so the
+// events on the *losers* are left untouched in their inboxes instead of being
+// silently consumed by a leftover poller.
+function waitAny(specs, timeout) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const limit = timeout || 8000;
+    (function poll() {
+      for (const sp of specs) {
+        const idx = sp.sock._inbox.findIndex((m) => sp.events.includes(m.event));
+        if (idx !== -1) {
+          const m = sp.sock._inbox[idx];
+          sp.sock._inbox.splice(0, idx + 1);
+          resolve({ sock: sp.sock, m });
+          return;
+        }
+      }
+      if (Date.now() - start > limit) {
+        reject(
+          new Error(
+            "timeout waiting for first of " +
+              specs.map((s) => s.events.join("/")).join(", "),
+          ),
+        );
+      }
+      setTimeout(poll, 20);
+    })();
+  });
+}
+
 function started(s) {
   return waitEvent(
     s,
@@ -179,13 +210,13 @@ async function run() {
   console.log("  Tic tac toe started in room 1.");
 
   // Wait until one of them is told it's their turn
-  const race = await Promise.race([
-    waitEvent(alice, "set-turn").then((d) => ({ s: alice, d })),
-    waitEvent(bob, "set-turn").then((d) => ({ s: bob, d })),
+  const race = await waitAny([
+    { sock: alice, events: ["set-turn"] },
+    { sock: bob, events: ["set-turn"] },
   ]);
-  const whoStarts = race.s;
+  const whoStarts = race.sock;
   const other = whoStarts === alice ? bob : alice;
-  const moverSymbol = race.d.symbol;
+  const moverSymbol = race.m.data.symbol;
 
   // --- Carol + Dave create a separate room and pick pizza ---
   carol.emit("create-room");
@@ -340,7 +371,7 @@ async function run() {
     "AI room has a different code",
   );
 
-  grace.emit("add-bot");
+  grace.emit("add-bot", { difficulty: "hard" });
   const botJoin = await waitEvent(
     grace,
     "room-update",
@@ -349,18 +380,29 @@ async function run() {
   const botPlayer = botJoin.players.find((p) => p.id !== grace.id);
   assert(!!botPlayer && botPlayer.isBot === true, "AI bot is seated as a player");
   assert(!!botPlayer && /bot/i.test(botPlayer.name), "AI bot has a bot name");
+  assert(
+    !!botPlayer && botPlayer.difficulty === "hard",
+    "AI bot difficulty is persisted on the player",
+  );
   console.log("  AI bot joined room " + codeD + ".");
 
   grace.emit("select-game", { game: "tictactoe" });
-  const p2 = await waitEvent(grace, "player2");
-  const mySymbol = p2.symbol === "x" ? "o" : "x";
-  const firstTurn = await waitEvent(grace, "set-turn");
-  if (firstTurn.symbol === mySymbol) {
-    grace.emit("btn-pos", { index: 4, symbol: firstTurn.symbol });
+  await waitEvent(grace, "player2");
+  // The random starter is either us or the bot; detect which happened via the
+  // first event that shows up instead of assuming a fixed symbol check (a
+  // player only ever receives their own "set-turn").
+  const firstEvent = await waitAny([
+    { sock: grace, events: ["click-btn", "set-turn"] },
+  ]);
+  if (firstEvent.m.event === "set-turn") {
+    // We open: take the centre.
+    grace.emit("btn-pos", { index: 4, symbol: firstEvent.m.data.symbol });
   } else {
-    await waitEvent(grace, "click-btn");
+    // Bot opened first; reply somewhere the bot did not just take so the
+    // move is always legal.
+    const myIdx = firstEvent.m.data.index === 4 ? 0 : 4;
     const myTurn = await waitEvent(grace, "set-turn");
-    grace.emit("btn-pos", { index: 4, symbol: myTurn.symbol });
+    grace.emit("btn-pos", { index: myIdx, symbol: myTurn.symbol });
   }
   await waitEvent(grace, "click-btn");
   assert(true, "AI bot plays tic-tac-toe");
@@ -422,16 +464,19 @@ async function run() {
 
   dave.emit("select-game", { game: "tictactoe" });
   eve.emit("select-game", { game: "tictactoe" });
-  const p2e = await waitEvent(dave, "player2");
-  const symD = p2e.symbol === "x" ? "o" : "x";
-  const turnD = await waitEvent(dave, "set-turn");
-  if (turnD.symbol === symD) {
-    dave.emit("btn-pos", { index: 4, symbol: turnD.symbol });
-  } else {
-    await waitEvent(dave, "click-btn");
-    const turnD2 = await waitEvent(dave, "set-turn");
-    dave.emit("btn-pos", { index: 4, symbol: turnD2.symbol });
-  }
+  await waitEvent(dave, "player2");
+
+  // The starting player is random; whoever it is puts a mark in the centre,
+  // then the other player replies, so the board has two moves before the
+  // spectator joins and the live snapshot below is meaningful.
+  const opener = await waitAny([
+    { sock: dave, events: ["set-turn"] },
+    { sock: eve, events: ["set-turn"] },
+  ]);
+  opener.sock.emit("btn-pos", { index: 4, symbol: opener.m.data.symbol });
+  const otherSock = opener.sock === dave ? eve : dave;
+  const otherTurn = await waitEvent(otherSock, "set-turn");
+  otherSock.emit("btn-pos", { index: 0, symbol: otherTurn.symbol });
 
   // Grace joins the now-full room -> spectator, and instantly sees the board.
   grace.emit("join-room", { code: codeE });
@@ -444,10 +489,11 @@ async function run() {
   );
   console.log("  Grace is watching room " + codeE + ".");
 
-  // The next move reaches the spectator live.
-  const turnE = await waitEvent(eve, "set-turn");
-  eve.emit("btn-pos", { index: 0, symbol: turnE.symbol });
-  await waitEvent(grace, "spectate-tictactoe", (d) => d.table[0] !== "");
+  // The next move reaches the spectator live (the opener's 2nd turn, in the
+  // bottom-right corner which is still free).
+  const turnThird = await waitEvent(opener.sock, "set-turn");
+  opener.sock.emit("btn-pos", { index: 8, symbol: turnThird.symbol });
+  await waitEvent(grace, "spectate-tictactoe", (d) => d.table[8] !== "");
   assert(true, "spectator sees the next move live");
   await sleep(300);
   assert(

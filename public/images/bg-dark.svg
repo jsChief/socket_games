@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" preserveAspectRatio="xMidYMid slice" role="img" aria-label="dark game table background">
+  <defs>
+    <filter id="soft" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="70" />
+    </filter>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="16" />
+    </filter>
+    <radialGradient id="vig" cx="50%" cy="42%" r="78%">
+      <stop offset="55%" stop-color="#000000" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.45" />
+    </radialGradient>
+    <pattern id="dots" width="48" height="48" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.4" fill="#93c5fd" opacity="0.10" />
+    </pattern>
+    <pattern id="grid" width="120" height="120" patternUnits="userSpaceOnUse">
+      <path d="M120 0 H0 V120" fill="none" stroke="#60a5fa" stroke-width="1" stroke-opacity="0.07" />
+    </pattern>
+  </defs>
+
+  <!-- nebula washes -->
+  <circle cx="140" cy="120" r="320" fill="#4338ca" opacity="0.16" filter="url(#soft)" />
+  <circle cx="1180" cy="90" r="360" fill="#1e40af" opacity="0.15" filter="url(#soft)" />
+  <circle cx="1120" cy="760" r="340" fill="#701a75" opacity="0.14" filter="url(#soft)" />
+  <circle cx="80" cy="760" r="300" fill="#0f766e" opacity="0.14" filter="url(#soft)" />
+  <circle cx="640" cy="180" r="300" fill="#1d4ed8" opacity="0.10" filter="url(#soft)" />
+
+  <!-- board grid + star dust -->
+  <rect width="1280" height="800" fill="url(#grid)" />
+  <rect width="1280" height="800" fill="url(#dots)" />
+
+  <!-- concentric target rings -->
+  <g fill="none" stroke="#94a3b8" stroke-opacity="0.10">
+    <circle cx="640" cy="430" r="150" />
+    <circle cx="640" cy="430" r="96" />
+    <circle cx="640" cy="430" r="42" />
+  </g>
+
+  <!-- neon game pieces with a soft glow -->
+  <g opacity="0.16">
+    <!-- X marks -->
+    <g stroke="#fb7185" stroke-width="14" stroke-linecap="round" filter="url(#glow)">
+      <line x1="150" y1="160" x2="210" y2="220" />
+      <line x1="210" y1="160" x2="150" y2="220" />
+      <line x1="1120" y1="640" x2="1180" y2="700" />
+      <line x1="1180" y1="640" x2="1120" y2="700" />
+    </g>
+    <!-- O rings -->
+    <g fill="none" stroke="#38bdf8" stroke-width="14" filter="url(#glow)">
+      <circle cx="1088" cy="180" r="42" />
+      <circle cx="176" cy="620" r="42" />
+    </g>
+    <!-- glowing tokens -->
+    <g filter="url(#glow)">
+      <circle cx="300" cy="300" r="36" fill="#f59e0b" />
+      <circle cx="300" cy="300" r="20" fill="none" stroke="#fbbf24" stroke-width="6" />
+      <circle cx="980" cy="430" r="36" fill="#f59e0b" />
+      <circle cx="980" cy="430" r="20" fill="none" stroke="#fbbf24" stroke-width="6" />
+    </g>
+    <!-- dice -->
+    <g filter="url(#glow)">
+      <rect x="540" y="470" width="72" height="72" rx="16" fill="#fb923c" />
+      <g fill="#fff7ed">
+        <circle cx="563" cy="493" r="5" />
+        <circle cx="589" cy="493" r="5" />
+        <circle cx="563" cy="519" r="5" />
+      </g>
+      <rect x="700" y="120" width="64" height="64" rx="14" fill="#fb923c" />
+      <g fill="#fff7ed">
+        <circle cx="716" cy="144" r="5" />
+        <circle cx="734" cy="162" r="5" />
+        <circle cx="752" cy="144" r="5" />
+      </g>
+    </g>
+    <!-- sparkles -->
+    <path d="M1190 300 q6 16 22 22 q-16 6 -22 22 q-6 -16 -22 -22 q16 -6 22 -22 z" fill="#fde047" filter="url(#glow)" />
+    <path d="M90 420 q4 11 15 15 q-11 4 -15 15 q-4 -11 -15 -15 q11 -4 15 -15 z" fill="#a5f3fc" filter="url(#glow)" />
+    <!-- pawn tokens -->
+    <g fill="#a78bfa" filter="url(#glow)">
+      <circle cx="428" cy="600" r="15" />
+      <path d="M410 618 h36 l6 16 h-48 z" />
+      <path d="M404 634 h54 a7 7 0 0 1 -7 7 h-40 a7 7 0 0 1 -7 -7 z" />
+    </g>
+  </g>
+
+  <!-- lone bright accent pixels -->
+  <g opacity="0.55">
+    <circle cx="240" cy="470" r="2.6" fill="#fde047" />
+    <circle cx="1020" cy="250" r="2.2" fill="#a5f3fc" />
+    <circle cx="430" cy="220" r="2" fill="#c4b5fd" />
+    <circle cx="860" cy="600" r="2.4" fill="#fda4af" />
+    <circle cx="660" cy="660" r="2" fill="#7dd3fc" />
+  </g>
+
+  <!-- vignette -->
+  <rect width="1280" height="800" fill="url(#vig)" />
+</svg>
