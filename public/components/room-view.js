@@ -172,7 +172,7 @@ Vue.component("room-view", {
                         </div>
                   </div>
 
-                  <div class="mt-4 rounded-2xl p-2 md:w-1/2 w-full bg-white/50 backdrop-blur shadow-xl">
+                  <div class="mt-4 rounded-2xl p-2 md:w-1/2 w-full bg-white/50 shadow-xl">
                         <p class="text-sm font-bold mb-1">
                               Players ({{ players.length }}/2)
                         </p>
@@ -234,7 +234,7 @@ Vue.component("room-view", {
                   <div class="mt-1 p-1 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl h-45/100 overflow-y-scroll no-scrollbar">
                         <div v-for="g in games" :key="g.id" @click="selectGame(g)"
                               :class="g.disabled || !readyToPlay ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02] transition-transform active:scale-95'"
-                              class="rounded-2xl bg-white/50 w-full backdrop-blur shadow-xl p-4">
+                              class="rounded-2xl bg-white/50 w-full shadow-xl p-4">
                               <div class="text-xl font-bold">{{ g.icon }} {{ g.name }}</div>
                               <div class="text-sm text-slate-700 mt-1">{{ g.desc }}</div>
                               <div class="text-xs mt-2 w-fit px-2 py-0.5 rounded-xl"

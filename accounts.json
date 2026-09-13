@@ -29,6 +29,12 @@
       "salt": "70f3deda5034e6c391e4f29509654be8",
       "hash": "f5a34548bb6da52a056eae24c88c511b6196bfecb94e121454983dd1ceb1fad872cb32013511dbc91c884fd3f206a407f58e7124171a9e412853bb94b4afcdd3",
       "persistentUserId": "8bd77ce5-a0c1-4723-97cf-f9292dc01520"
+    },
+    "wp360": {
+      "username": "wp360",
+      "salt": "b57096a9bb36c620c17a5e9402f7a38e",
+      "hash": "2b98cb1a011bccf3f79c047c46d66ac1a7ed3347d7c8df9e3ef091c15c5022529fd2400f863955ca1ab24a882b8c6aa661bef430368b6721ec32c498ea67a8a1",
+      "persistentUserId": "26d1e6e5-5fa1-4f92-8b86-bf1642879dc5"
     }
   },
   "tokens": {
@@ -38,6 +44,8 @@
     "dbae809545f2a66a3a1ded77ddd44f96b1b10f8e56b7dfbbf6effa3a73ae246d": "pc360",
     "910f2e9781b1a3cc65d261f22e2961623edd90fb365025999c9c5041ee82c97f": "automate",
     "22b6603c24db3c72cc4edad38726d765c571e3b21d0d1cf3ca38015df91a99d4": "dark-tayo",
-    "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david"
+    "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david",
+    "a5ee2fac0f4706b93eac7ebc09cf442899acc632f2eb79e7c8176d3e2696f7fb": "james o",
+    "62765eb330b7367ebdce0f19e302f2a16b297aa3b3a332ded9ca58bdf999ddd9": "wp360"
   }
 }

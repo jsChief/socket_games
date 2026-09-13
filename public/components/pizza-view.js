@@ -292,7 +292,7 @@ Vue.component("pizza-view", {
       },
       template: `
             <div>
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/80 backdrop-blur text-white font-bold shadow">
+                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/80 text-white font-bold shadow">
                         Find My Pizza 🍕
                   </p>
 
@@ -315,7 +315,7 @@ Vue.component("pizza-view", {
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 backdrop-blur shadow-xl">
+                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl">
                         <p class="text-center text-sm font-bold" :class="statusClass">{{ pizzaStatus }}</p>
                         <p v-if="phase === 'placement'" class="text-center text-lg text-orange-600">
                               Time left: {{ timer }}s
@@ -378,7 +378,7 @@ Vue.component("pizza-view", {
                   </div>
 
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
                         <div class="pizza-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white w-80 max-w-full mx-4"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">{{ result === 'won' ? '🎉' : '😢' }}</div>

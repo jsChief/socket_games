@@ -283,10 +283,10 @@ Vue.component("chat-view", {
             <div>
                   <!-- chat overlay -->
                   <div ref="overlay" v-show="chatOpen" id="chatOverlay"
-                        class="fixed inset-0 z-50 flex flex-col bg-white/20 backdrop-blur">
+                        class="fixed inset-0 z-50 flex flex-col bg-white/95">
                         <div class="w-full flex-1 flex flex-col min-h-0 bg-white/20 p-1">
                               <div
-                                    class="flex place-content-between items-center w-full bg-white/50 rounded-xl h-8 p-1">
+                                    class="flex place-content-between items-center w-full rounded-xl h-8 p-1">
                                     <p class="px-2 py-0.5 text-sm rounded-xl" :class="opponentClass">
                                           {{ opponentLabel || "player 2" }}
                                     </p>
@@ -321,7 +321,7 @@ Vue.component("chat-view", {
                                     {{ typingName }} is typing...
                               </div>
                               <div v-if="replyTarget"
-                                    class="mt-2 rounded-xl border border-slate-300 bg-white/80 backdrop-blur-sm p-2 text-sm text-slate-900">
+                                    class="mt-2 rounded-xl border border-slate-300 bg-white/80 p-2 text-sm text-slate-900">
                                     <div class="flex w-full">
                                           <div class="font-semibold text-sm pr-2 text-slate-500">Replying:</div>
                                           <div class="truncate text-sm text-slate-900">{{ replyTarget.text }}</div>
@@ -332,7 +332,7 @@ Vue.component("chat-view", {
                                     </button>
                               </div>
 
-                              <div class="h-fit rounded-2xl bg-white/50 p-1 backdrop-blur-sm">
+                              <div class="h-fit rounded-2xl p-1">
                                     <!-- Quick Reactions Bar -->
                                     <div
                                           class="flex place-content-between gap-4 p-1 overflow-x-auto no-scrollbar rounded-xl mb-1 text-xl">
@@ -387,6 +387,7 @@ Vue.component("chat-view", {
                                     </div>
 
                                     <div class="h-fit w-full rounded-2xl flex items-center place-content-between">
+                                    
                                           <input placeholder="enter text..." type="text" v-model="inputValue"
                                                 @input="onInput" @keyup.enter="sendMessage"
                                                 class="placeholder-gray-600 p-2 h-10 w-87/100 rounded-2xl border border-white/40 shadow" />

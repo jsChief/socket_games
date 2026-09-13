@@ -298,7 +298,7 @@ Vue.component("reversi-view", {
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 backdrop-blur shadow-xl text-center">
+                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl text-center">
                         <p class="text-sm font-bold" :class="statusColor">
                               {{ status || statusText }}
                         </p>
@@ -344,7 +344,7 @@ Vue.component("reversi-view", {
                   </div>
 
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 -sm">
                         <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white w-80 max-w-full mx-4"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">

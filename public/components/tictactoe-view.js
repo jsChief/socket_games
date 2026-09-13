@@ -231,7 +231,7 @@ Vue.component("tictactoe-view", {
                   </div>
 
                   <div v-if="resetFromName" @click="declineReset"
-                        class="fixed inset-0 z-[75] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                        class="fixed inset-0 z-[75] flex items-center justify-center bg-black/40">
                         <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl bg-white/95 text-slate-900 w-80 max-w-full mx-4"
                               @click.stop>
                               <div class="text-5xl mb-2">↻</div>
@@ -250,7 +250,7 @@ Vue.component("tictactoe-view", {
                   </div>
 
                   <div v-if="result" @click="dismissResult"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
                         <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">{{ result.emoji }}</div>

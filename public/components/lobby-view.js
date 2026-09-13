@@ -12,14 +12,34 @@ Vue.component("lobby-view", {
       joinCode: "",
       busy: false,
       themes: [
-            { id: "sunset", name: "Sunset", emoji: "🌇", swatch: ["#fbbf24", "#f97316"] },
-            { id: "midnight", name: "Midnight", emoji: "🌙", swatch: ["#8b5cf6", "#312e81"] },
-            { id: "forest", name: "Forest", emoji: "🌲", swatch: ["#84cc16", "#15803d"] },
-            { id: "ocean", name: "Ocean", emoji: "🌊", swatch: ["#22d3ee", "#0f766e"] },
+        {
+          id: "sunset",
+          name: "Sunset",
+          emoji: "🌇",
+          swatch: ["#fbbf24", "#f97316"],
+        },
+        {
+          id: "midnight",
+          name: "Midnight",
+          emoji: "🌙",
+          swatch: ["#8b5cf6", "#312e81"],
+        },
+        {
+          id: "forest",
+          name: "Forest",
+          emoji: "🌲",
+          swatch: ["#84cc16", "#15803d"],
+        },
+        {
+          id: "ocean",
+          name: "Ocean",
+          emoji: "🌊",
+          swatch: ["#22d3ee", "#0f766e"],
+        },
       ],
       modes: [
-            { id: "light", name: "Light", emoji: "☀️" },
-            { id: "dark", name: "Dark", emoji: "🌙" },
+        { id: "light", name: "Light", emoji: "☀️" },
+        { id: "dark", name: "Dark", emoji: "🌙" },
       ],
     };
   },
@@ -71,14 +91,15 @@ Vue.component("lobby-view", {
     },
   },
   template: `
-            <div class="overflow-y-scroll h-full no-scrollbar">
-                  <div class="p-2 backdrop-blur rounded-br-2xl">
-                        <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 backdrop-blur">
+            <div class="overflow-y-scroll h-full no-scrollbar p-2">
+
+                  <div class="p-2 backdrop-blu rounded-br-2xl">
+                        <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90">
                         Games Lobby
                         </p>
                   </div>
 
-                  <div class="flex flex-col items-center gap-1 rounded-b-2xl p-2 w-fit backdrop-blur">
+                  <div class="flex flex-col items-center gap-1 rounded-b-2xl p-2 w-fit">
                         <p class="px-2 py-1 text-sm rounded-2xl bg-white/50 flex items-center">
                               <span class="font-bold">{{ myName || "no name yet, set your name" }}</span>
                               <span class="ml-2 inline-flex items-center gap-1 rounded-xl px-2 py-0.5 text-sm align-middle"
@@ -90,7 +111,7 @@ Vue.component("lobby-view", {
                   </div>
 
                   <div class="md:flex md:place-content-between w-full h-fit">
-                        <div class="mt-5 rounded-2xl p-2 w-full md:w-45/100 bg-white/50 backdrop-blur shadow-xl max-h-20/100 overflow-y-scroll no-scrollbar">
+                        <div class="mt-5 rounded-2xl p-2 w-full md:w-45/100 bg-white/50 border border-gray-500/40 shadow-xl max-h-20/100 overflow-y-scroll no-scrollbar">
                         <p class="text-sm font-bold mb-1">
                               Online ({{ onlinePlayers.length }})
                         </p>
@@ -110,7 +131,7 @@ Vue.component("lobby-view", {
                         </div>
                   </div>
 
-                  <div class="mt-3 rounded-2xl p-3 w-full md:w-45/100 bg-white/50 backdrop-blur shadow-xl">
+                  <div class="mt-3 rounded-2xl p-3 w-full md:w-45/100 bg-white/50 shadow-xl border border-gray-500/40">
                         <p class="text-sm font-bold">Play with friends</p>
                         <div class="mt-2 flex gap-2">
                               <button @click="createRoom" :disabled="busy || connectionStatus !== 'connected'"
@@ -137,12 +158,12 @@ Vue.component("lobby-view", {
                   </div>
 
                   <!-- Theme picker -->
-                  <div class="mt-3 rounded-2xl p-3 w-full md:w-fit bg-white/50 backdrop-blur shadow-xl">
-                        <div class="flex items-center justify-between gap-3 px-1">
+                  <div class="mt-8 rounded-2xl p-3 w-full md:w-35/100 bg-white/50 shadow-xl border border-gray-500/40">
+                        <div class="flex items-center justify-between gap-3 px-1 ">
                               <p class="text-sm font-bold">🎨 Theme</p>
                               <p class="text-xs font-bold text-orange-600">{{ activeThemeName }}</p>
                         </div>
-                        <div class="mt-2 flex gap-2">
+                        <div class="mt-4 flex gap-2 place-content-around">
                               <button v-for="t in themes" :key="t.id" @click="applyTheme(t.id)"
                                     :title="t.name"
                                     class="size-12 rounded-2xl flex items-center justify-center text-xl shadow-inner transition-all duration-300"
@@ -166,19 +187,7 @@ Vue.component("lobby-view", {
                         </p>
                   </div>
 
-                  
-<!--
-                  <div class="mt-4 text-2xl rounded-xl text-white bg-orange-600 p-2 w-fit font-bold text-center">
-                        Games
-                  </div>
-                  <p class="mt-1 text-center text-sm text-slate-600 bg-white/50 rounded-xl py-2">
-                        Join or create a room to start a game with a friend.
-                  </p>
-                  <p class="mt-2 text-center text-xs text-slate-500">
-                        Tic Tac Toe · Find My Pizza — more on the way!
-                  </p> -->
 
-                  <div class="h-24"></div>
             </div>
       `,
 });

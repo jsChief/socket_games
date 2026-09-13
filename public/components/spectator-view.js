@@ -290,7 +290,7 @@ Vue.component("spectator-view", {
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 backdrop-blur shadow-xl text-center">
+                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl text-center">
                         <p class="text-sm font-bold"
                               :class="gameOverStatus ? 'text-slate-700' : 'text-orange-600'">
                               {{ statusText }}
@@ -338,7 +338,7 @@ Vue.component("spectator-view", {
                   <!-- Find My Pizza: both probe grids (slices stay hidden) -->
                   <div v-if="game === 'pizza'" class="md:w-1/2 w-full mx-auto mt-3">
                         <div v-for="bi in [0, 1]" :key="bi"
-                              class="rounded-2xl p-2 bg-white/70 backdrop-blur shadow-xl">
+                              class="rounded-2xl p-2 bg-white/70 shadow-xl">
                               <p class="text-xs font-bold mb-1 text-slate-700">
                                     {{ pizza.names[bi] || 'Player ' + (bi + 1) }}'s board —
                                     found {{ pizza.found[bi] }}/5
@@ -358,7 +358,7 @@ Vue.component("spectator-view", {
 
                   <!-- Rock Paper Scissors: live hands + score -->
                   <div v-if="game === 'rps'" class="md:w-2/3 w-full mx-auto mt-3">
-                        <div class="rounded-2xl p-3 bg-white/70 backdrop-blur shadow-xl">
+                        <div class="rounded-2xl p-3 bg-white/70 shadow-xl">
                               <div class="grid grid-cols-2 gap-2 text-center items-center">
                                     <div>
                                           <p class="text-xs font-bold text-slate-600 truncate">

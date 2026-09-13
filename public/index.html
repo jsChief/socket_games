@@ -1,288 +1,337 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+    />
+    <title>Game Lobby</title>
+    <style>
+      * {
+        outline: none;
+      }
 
-<head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-      <title>Game Lobby</title>
-      <style>
-            * {
-                  outline: none;
-            }
+      @font-face {
+        src: url(assets/Sweet_Smile.ttf);
+        font-family: "SweetSmile";
+      }
 
-            @font-face {
-                  src: url(assets/Sweet_Smile.ttf);
-                  font-family: "SweetSmile";
-            }
+      .text-ss {
+        font-family: SweetSmile;
+      }
 
-            .text-ss {
-                  font-family: SweetSmile;
-            }
+      html,
+      body {
+        min-height: 100%;
+      }
 
-            html,
-            body {
-                  min-height: 100%;
-            }
+      body {
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
 
-            body {
-                  background-position: center;
-                  background-size: cover;
-                  background-repeat: no-repeat;
-                  background-attachment: fixed;
-                  min-height: 100vh;
-                  min-height: 100dvh;
-            }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
 
-            .no-scrollbar::-webkit-scrollbar {
-                  display: none;
-            }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
 
-            .no-scrollbar {
-                  -ms-overflow-style: none;
-                  scrollbar-width: none;
-            }
+      /* ---- Tic-tac-toe game animations ---- */
+      @keyframes ttt-pop {
+        0% {
+          transform: scale(0.2) rotate(-8deg);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.15) rotate(2deg);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
+        }
+      }
+      .ttt-pop {
+        animation: ttt-pop 0.3s ease-out both;
+      }
 
-            /* ---- Tic-tac-toe game animations ---- */
-            @keyframes ttt-pop {
-                  0% {
-                        transform: scale(0.2) rotate(-8deg);
-                        opacity: 0;
-                  }
-                  60% {
-                        transform: scale(1.15) rotate(2deg);
-                        opacity: 1;
-                  }
-                  100% {
-                        transform: scale(1) rotate(0deg);
-                        opacity: 1;
-                  }
-            }
-            .ttt-pop {
-                  animation: ttt-pop 0.3s ease-out both;
-            }
+      @keyframes ttt-win-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+          transform: scale(1);
+          background-color: #facc15;
+        }
+        50% {
+          box-shadow: 0 0 24px 8px rgba(250, 204, 21, 0.85);
+          transform: scale(1.1);
+          background-color: #fde047;
+        }
+      }
+      .ttt-win-cell {
+        animation: ttt-win-glow 0.8s ease-in-out 3;
+      }
 
-            @keyframes ttt-win-glow {
-                  0%,
-                  100% {
-                        box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
-                        transform: scale(1);
-                        background-color: #facc15;
-                  }
-                  50% {
-                        box-shadow: 0 0 24px 8px rgba(250, 204, 21, 0.85);
-                        transform: scale(1.1);
-                        background-color: #fde047;
-                  }
-            }
-            .ttt-win-cell {
-                  animation: ttt-win-glow 0.8s ease-in-out 3;
-            }
+      @keyframes ttt-banner-pop {
+        0% {
+          transform: scale(0.4) translateY(24px);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1) translateY(0);
+          opacity: 1;
+        }
+      }
+      .ttt-banner {
+        animation: ttt-banner-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
 
-            @keyframes ttt-banner-pop {
-                  0% {
-                        transform: scale(0.4) translateY(24px);
-                        opacity: 0;
-                  }
-                  100% {
-                        transform: scale(1) translateY(0);
-                        opacity: 1;
-                  }
-            }
-            .ttt-banner {
-                  animation: ttt-banner-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-            }
+      /* ---- Pizza game animations ---- */
+      @keyframes pizza-pop {
+        0% {
+          transform: scale(0.2) rotate(-8deg);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.15) rotate(2deg);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
+        }
+      }
+      .pizza-pop {
+        animation: pizza-pop 0.3s ease-out both;
+      }
 
-            /* ---- Pizza game animations ---- */
-            @keyframes pizza-pop {
-                  0% {
-                        transform: scale(0.2) rotate(-8deg);
-                        opacity: 0;
-                  }
-                  60% {
-                        transform: scale(1.15) rotate(2deg);
-                        opacity: 1;
-                  }
-                  100% {
-                        transform: scale(1) rotate(0deg);
-                        opacity: 1;
-                  }
-            }
-            .pizza-pop {
-                  animation: pizza-pop 0.3s ease-out both;
-            }
+      @keyframes pizza-hit {
+        0% {
+          transform: scale(1);
+        }
+        30% {
+          transform: scale(1.35);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .pizza-hit {
+        animation: pizza-hit 0.45s ease-out both;
+      }
 
-            @keyframes pizza-hit {
-                  0% {
-                        transform: scale(1);
-                  }
-                  30% {
-                        transform: scale(1.35);
-                  }
-                  100% {
-                        transform: scale(1);
-                  }
-            }
-            .pizza-hit {
-                  animation: pizza-hit 0.45s ease-out both;
-            }
+      @keyframes pizza-miss {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(0.85);
+          opacity: 0.6;
+        }
+      }
+      .pizza-miss {
+        animation: pizza-miss 0.4s ease-in-out both;
+      }
 
-            @keyframes pizza-miss {
-                  0%,
-                  100% {
-                        transform: scale(1);
-                        opacity: 1;
-                  }
-                  50% {
-                        transform: scale(0.85);
-                        opacity: 0.6;
-                  }
-            }
-            .pizza-miss {
-                  animation: pizza-miss 0.4s ease-in-out both;
-            }
+      .pizza-banner {
+        animation: ttt-banner-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
 
-            .pizza-banner {
-                  animation: ttt-banner-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-            }
+      /* ---- Reversi game animations ---- */
+      @keyframes reversi-pop {
+        0% {
+          transform: scale(0.3);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.2);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .reversi-pop {
+        animation: reversi-pop 0.35s ease-out both;
+      }
 
-            /* ---- Reversi game animations ---- */
-            @keyframes reversi-pop {
-                  0% {
-                        transform: scale(0.3);
-                        opacity: 0;
-                  }
-                  60% {
-                        transform: scale(1.2);
-                        opacity: 1;
-                  }
-                  100% {
-                        transform: scale(1);
-                        opacity: 1;
-                  }
-            }
-            .reversi-pop {
-                  animation: reversi-pop 0.35s ease-out both;
-            }
+      @keyframes reversi-flip {
+        0% {
+          transform: scaleX(1);
+        }
+        50% {
+          transform: scaleX(0);
+        }
+        100% {
+          transform: scaleX(1);
+        }
+      }
+      .reversi-flip {
+        animation: reversi-flip 0.5s ease-in-out both;
+      }
 
-            @keyframes reversi-flip {
-                  0% {
-                        transform: scaleX(1);
-                  }
-                  50% {
-                        transform: scaleX(0);
-                  }
-                  100% {
-                        transform: scaleX(1);
-                  }
-            }
-            .reversi-flip {
-                  animation: reversi-flip 0.5s ease-in-out both;
-            }
+      /* ---- Rock Paper Scissors game animations ---- */
+      @keyframes rps-pop {
+        0% {
+          transform: scale(0.4) rotate(-8deg);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.15) rotate(3deg);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
+        }
+      }
+      .rps-pop {
+        animation: rps-pop 0.35s ease-out both;
+      }
+    </style>
+    <script src="src/TW4.js"></script>
+    <link rel="stylesheet" href="all.css" />
+    <link rel="stylesheet" href="themes.css" />
+    <script src="src/socket.io.min.js"></script>
+    <script src="src/vue.js"></script>
+    <script>
+      // Apply the player's saved theme + light/dark mode before first paint (no flash).
+      (function () {
+        var t = localStorage.getItem("gameTheme");
+        if (!t) t = "sunset";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = localStorage.getItem("gameMode");
+        if (m !== "dark") m = "light";
+        document.documentElement.setAttribute("data-mode", m);
+      })();
+    </script>
+  </head>
 
-            /* ---- Rock Paper Scissors game animations ---- */
-            @keyframes rps-pop {
-                  0% {
-                        transform: scale(0.4) rotate(-8deg);
-                        opacity: 0;
-                  }
-                  60% {
-                        transform: scale(1.15) rotate(3deg);
-                        opacity: 1;
-                  }
-                  100% {
-                        transform: scale(1) rotate(0deg);
-                        opacity: 1;
-                  }
-            }
-            .rps-pop {
-                  animation: rps-pop 0.35s ease-out both;
-            }
-      </style>
-      <script src="src/TW4.js"></script>
-      <link rel="stylesheet" href="all.css" />
-      <link rel="stylesheet" href="themes.css" />
-      <script src="src/socket.io.min.js"></script>
-      <script src="src/vue.js"></script>
-      <script>
-            // Apply the player's saved theme + light/dark mode before first paint (no flash).
-            (function () {
-                  var t = localStorage.getItem("gameTheme");
-                  if (!t) t = "sunset";
-                  document.documentElement.setAttribute("data-theme", t);
-                  var m = localStorage.getItem("gameMode");
-                  if (m !== "dark") m = "light";
-                  document.documentElement.setAttribute("data-mode", m);
-            })();
-      </script>
-      
-</head>
+  <body class="w-screen h-screen text-ss">
+    <div id="app" class="h-full w-full">
+      <!-- AUTH VIEW -->
+      <auth-view
+        ref="auth"
+        v-show="view === 'auth'"
+        :connection-status="connectionStatus"
+        @submit="onAuthSubmit"
+      ></auth-view> 
 
-<body class="p-1 h-[90vh] w-screen bg-yellow-500/30 text-ss">
-      <div id="app" class="h-full w-full">
-            <!-- AUTH VIEW -->
-            <auth-view ref="auth" v-show="view === 'auth'" @submit="onAuthSubmit"></auth-view>
+      <!-- LOBBY VIEW -->
+      <lobby-view
+        ref="lobby"
+        v-show="view === 'lobby'"
+        :my-name="myName"
+        :connection-status="connectionStatus"
+        :socket-id="socketId"
+        :theme="theme"
+        :mode="mode"
+        @theme-changed="setTheme"
+        @mode-changed="setMode"
+      ></lobby-view>
 
-            <!-- LOBBY VIEW -->
-            <lobby-view ref="lobby" v-show="view === 'lobby'" :my-name="myName" :connection-status="connectionStatus"
-                  :socket-id="socketId" :theme="theme" :mode="mode" @theme-changed="setTheme"
-                  @mode-changed="setMode"></lobby-view>
+      <!-- ROOM VIEW -->
+      <room-view
+        ref="room"
+        v-show="view === 'room'"
+        :socket-id="socketId"
+        @select-game="selectGame"
+        @add-bot="addBot"
+        @remove-bot="removeBot"
+        @leave-room="leaveRoom"
+      ></room-view>
 
-            <!-- ROOM VIEW -->
-            <room-view ref="room" v-show="view === 'room'" :socket-id="socketId" @select-game="selectGame" @add-bot="addBot"
-                  @remove-bot="removeBot" @leave-room="leaveRoom"></room-view>
+      <!-- TIC TAC TOE VIEW -->
+      <tictactoe-view
+        ref="tt"
+        v-show="view === 'tictactoe'"
+        @leave-room="leaveRoom"
+      ></tictactoe-view>
 
-            <!-- TIC TAC TOE VIEW -->
-            <tictactoe-view ref="tt" v-show="view === 'tictactoe'" @leave-room="leaveRoom"></tictactoe-view>
+      <!-- PIZZA GAME VIEW -->
+      <pizza-view
+        ref="pizza"
+        v-show="view === 'pizza'"
+        @leave-room="leaveRoom"
+      ></pizza-view>
 
-            <!-- PIZZA GAME VIEW -->
-            <pizza-view ref="pizza" v-show="view === 'pizza'" @leave-room="leaveRoom"></pizza-view>
+      <!-- REVERSI GAME VIEW -->
+      <reversi-view
+        ref="reversi"
+        v-show="view === 'reversi'"
+        @leave-room="leaveRoom"
+      ></reversi-view>
 
-            <!-- REVERSI GAME VIEW -->
-            <reversi-view ref="reversi" v-show="view === 'reversi'" @leave-room="leaveRoom"></reversi-view>
+      <!-- ROCK PAPER SCISSORS GAME VIEW -->
+      <rps-view
+        ref="rps"
+        v-show="view === 'rps'"
+        @leave-room="leaveRoom"
+      ></rps-view>
 
-            <!-- ROCK PAPER SCISSORS GAME VIEW -->
-            <rps-view ref="rps" v-show="view === 'rps'" @leave-room="leaveRoom"></rps-view>
+      <!-- SPECTATOR VIEW -->
+      <spectator-view
+        ref="spectator"
+        v-show="view === 'spectator'"
+        @leave-room="leaveRoom"
+      ></spectator-view>
 
-            <!-- SPECTATOR VIEW -->
-            <spectator-view ref="spectator" v-show="view === 'spectator'" @leave-room="leaveRoom"></spectator-view>
+      <!-- floating chat button (visible on all game pages) -->
+      <button
+        @click="openChat"
+        class="fixed bottom-4 right-4 z-40 size-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-600 shadow-xl text-2xl flex items-center justify-center"
+        title="Chat"
+      >
+        <span class="fa fa-comment-dots text-white"></span>
+        <span
+          v-show="hasNewMessage"
+          class="absolute -top-[2px] -right-[2px] size-3 rounded-full bg-red-600 ring ring-orange-300"
+        ></span>
+      </button>
 
-            <!-- floating chat button (visible on all game pages) -->
-            <button @click="openChat"
-                  class="fixed bottom-4 right-4 z-40 size-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-600 shadow-xl text-2xl flex items-center justify-center"
-                  title="Chat">
-                  <span class="fa fa-comment-dots text-white"></span>
-                  <span v-show="hasNewMessage"
-                        class="absolute -top-[2px] -right-[2px] size-3 rounded-full bg-red-600 ring ring-orange-300"></span>
-            </button>
+      <!-- CHAT OVERLAY VIEW -->
+      <chat-view ref="chat" @new-message="hasNewMessage = true"></chat-view>
 
-            <!-- CHAT OVERLAY VIEW -->
-            <chat-view ref="chat" @new-message="hasNewMessage = true"></chat-view>
+      <audio id="messageTone" src="assets/notify.mp3" preload="auto"></audio>
+      <audio
+        id="serverMessageTone"
+        src="assets/server_notify.mp3"
+        preload="auto"
+      ></audio>
+      <audio id="win" src="assets/win_notify.mp3" preload="auto"></audio>
+      <audio id="lose" src="assets/lose_notify.mp3" preload="auto"></audio>
+      <audio id="draw" src="assets/draw_notify.mp3" preload="auto"></audio>
+      <audio id="move" src="assets/move.mp3" preload="auto"></audio>
+      <audio id="join" src="assets/join.mp3" preload="auto"></audio>
+    </div>
 
-            <audio id="messageTone" src="assets/notify.mp3" preload="auto"></audio>
-            <audio id="serverMessageTone" src="assets/server_notify.mp3" preload="auto"></audio>
-            <audio id="win" src="assets/win_notify.mp3" preload="auto"></audio>
-            <audio id="lose" src="assets/lose_notify.mp3" preload="auto"></audio>
-            <audio id="draw" src="assets/draw_notify.mp3" preload="auto"></audio>
-            <audio id="move" src="assets/move.mp3" preload="auto"></audio>
-            <audio id="join" src="assets/join.mp3" preload="auto"></audio>
-      </div>
+    <!-- popup notification container -->
+    <div
+      id="toastContainer"
+      class="fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex w-full max-w-sm flex-col items-center gap-2 px-2 pointer-events-none"
+    ></div>
 
-      <!-- popup notification container -->
-      <div id="toastContainer"
-            class="fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex w-full max-w-sm flex-col items-center gap-2 px-2 pointer-events-none">
-      </div>
+    <script src="components/auth-view.js"></script>
+    <script src="components/lobby-view.js"></script>
+    <script src="components/room-view.js"></script>
+    <script src="components/tictactoe-view.js"></script>
+    <script src="components/pizza-view.js"></script>
+    <script src="components/reversi-view.js"></script>
+    <script src="components/rps-view.js"></script>
+    <script src="components/spectator-view.js"></script>
+    <script src="components/chat-view.js"></script>
 
-            <script src="components/auth-view.js"></script>
-            <script src="components/lobby-view.js"></script>
-      <script src="components/room-view.js"></script>
-      <script src="components/tictactoe-view.js"></script>
-      <script src="components/pizza-view.js"></script>
-      <script src="components/reversi-view.js"></script>
-      <script src="components/rps-view.js"></script>
-      <script src="components/spectator-view.js"></script>
-      <script src="components/chat-view.js"></script>
-
-      <script src="main.js"></script>
-</body>
-
+    <script src="main.js"></script>
+  </body>
 </html>

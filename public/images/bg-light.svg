@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" preserveAspectRatio="xMidYMid slice" role="img" aria-label="light game table background">
+  <!--
   <defs>
     <filter id="soft" x="-70%" y="-70%" width="240%" height="240%">
       <feGaussianBlur stdDeviation="70" />
@@ -10,7 +11,7 @@
       <rect x="3" y="3" width="66" height="66" rx="12" fill="none" stroke="#b45309" stroke-width="1.5" stroke-opacity="0.12" />
       <circle cx="36" cy="36" r="1.6" fill="#92400e" opacity="0.14" />
     </pattern>
-  </defs>
+  </defs> -->
 
   <!-- soft colour washes so the flat theme tint never looks flat -->
   <circle cx="-60" cy="140" r="330" fill="#f59e0b" opacity="0.18" filter="url(#soft)" />

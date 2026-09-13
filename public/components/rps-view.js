@@ -234,7 +234,7 @@ Vue.component("rps-view", {
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 backdrop-blur shadow-xl text-center">
+                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl text-center">
                         <p class="text-sm font-bold" :class="statusColor">
                               {{ status || roundStatus }}
                         </p>
@@ -244,13 +244,13 @@ Vue.component("rps-view", {
                   </div>
 
                   <div class="mt-3 grid grid-cols-2 gap-3 md:w-2/3 w-full mx-auto">
-                        <div class="rounded-2xl p-3 bg-white/60 backdrop-blur shadow-xl text-center">
+                        <div class="rounded-2xl p-3 bg-white/60 shadow-xl text-center">
                               <p class="text-xs font-bold text-slate-600 mb-1">Your hand</p>
                               <div class="text-5xl" :class="myPick ? 'rps-pop' : 'opacity-40'">
                                     {{ myHandIcon }}
                               </div>
                         </div>
-                        <div class="rounded-2xl p-3 bg-white/60 backdrop-blur shadow-xl text-center">
+                        <div class="rounded-2xl p-3 bg-white/60 shadow-xl text-center">
                               <p class="text-xs font-bold text-slate-600 mb-1 truncate">
                                     {{ opponentName || "Opponent" }}'s hand
                               </p>
@@ -296,7 +296,7 @@ Vue.component("rps-view", {
                   </div>
 
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
                         <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white w-80 max-w-full mx-4"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">
