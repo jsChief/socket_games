@@ -47,22 +47,22 @@ Vue.component("rps-view", {
             },
             myCardClass() {
                   if (this.phase !== "battle" || this.phase === "over")
-                        return "bg-white/60 text-slate-900";
+                        return "bg-white/60 text-slate-800";
                   if (this.roundLocked)
-                        return "bg-green-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
-                  return "bg-white/60 text-slate-900";
+                        return "bg-gradient-to-br from-green-400 to-emerald-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
+                  return "bg-white/60 text-slate-800";
             },
             opponentCardClass() {
                   if (this.phase !== "battle" || this.phase === "over")
-                        return "bg-white/60 text-slate-900";
+                        return "bg-white/60 text-slate-800";
                   if (!this.roundLocked && this.opponentName)
-                        return "bg-orange-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
-                  return "bg-white/60 text-slate-900";
+                        return "bg-gradient-to-br from-orange-400 to-rose-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
+                  return "bg-white/60 text-slate-800";
             },
             resultBannerClass() {
                   return this.result === "won"
-                        ? "bg-gradient-to-br from-green-500 to-emerald-700"
-                        : "bg-gradient-to-br from-red-500 to-rose-700";
+                        ? "bg-gradient-to-br from-green-400 to-emerald-600"
+                        : "bg-gradient-to-br from-rose-400 to-red-600";
             },
             oppHandIcon() {
                   const c = RPS_CHOICES.find((x) => x.id === this.oppPick);
@@ -176,7 +176,7 @@ Vue.component("rps-view", {
             },
             handClass(id) {
                   let c =
-                        "rounded-2xl flex flex-col items-center justify-center gap-1 py-4 bg-white/60 shadow-xl transition-all duration-200 text-center select-none ";
+                        "rounded-3xl flex flex-col items-center justify-center gap-1 py-4 bg-white/60 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-200 text-center select-none ";
                   if (this.phase === "battle" && !this.roundLocked)
                         c +=
                               "cursor-pointer hover:scale-105 hover:bg-orange-100 active:scale-95 ";
@@ -186,6 +186,39 @@ Vue.component("rps-view", {
                                     ? "ring-4 ring-yellow-300 bg-orange-200 scale-105 "
                                     : "opacity-50 cursor-not-allowed ";
                   return c;
+            },
+            openHelp() {
+                  openHowTo({
+                        icon: "✊",
+                        title: "Rock Paper Scissors",
+                        tagline: "Best of 3 classic showdown!",
+                        accent: "from-purple-500 to-fuchsia-500",
+                        steps: [
+                              {
+                                    icon: "✊✋✌️",
+                                    title: "Pick a hand",
+                                    text: "Choose rock, paper or scissors. Both players throw at the same time every round.",
+                              },
+                              {
+                                    icon: "🔁",
+                                    title: "Who wins",
+                                    text: "Rock crushes scissors, scissors cut paper, and paper covers rock.",
+                              },
+                              {
+                                    icon: "🎯",
+                                    title: "First to 2",
+                                    text: "Win 2 rounds to take the match. Draws just replay the round.",
+                              },
+                              {
+                                    icon: "↻",
+                                    title: "Rematch",
+                                    text: "Both players press Play again to start a fresh match.",
+                              },
+                        ],
+                  });
+            },
+            leaveGame() {
+                  this.$emit("leave-game");
             },
             leaveRoom() {
                   this.$emit("leave-room");
@@ -208,96 +241,126 @@ Vue.component("rps-view", {
             },
       },
       template: `
-            <div>
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-slate-800 text-white font-bold shadow">
-                        ✊ Rock Paper Scissors ✌️
-                  </p>
+            <div class="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
+                  <!-- Header -->
+                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-500 to-fuchsia-500 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="deco-circle -right-6 -top-10 size-32"></div>
+                        <div class="deco-circle -bottom-12 left-8 size-24"></div>
+                        <div class="relative z-10 flex items-center gap-8 lg:gap-3">
+                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">✊</span>
+                              <div class="lg:flex lg:w-full lg:place-content-between">
+                                    <div class="min-w-0 flex-1">
+                                    <h1 class="text-3xl font-black leading-none">Rock Paper Scissors</h1>
+                                    <p class="mt-1 text-sm font-bold text-white/85">Best of 3 classic showdown!</p>
+                              </div>
+                              <button @click="openHelp"
+                                    class="btn-bubble shrink-0 rounded-2xl bg-white/25 px-3 py-2 text-sm font-black hover:bg-white/35">
+                                    ❓ How to play
+                              </button>
+                              </div>
+                        </div>
+                  </div>
 
-                  <div class="mt-2 grid grid-cols-2 gap-2">
+                  <!-- Player cards -->
+                  <div class="grid grid-cols-2 gap-3">
                         <div :class="myCardClass"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-sm font-bold">You</div>
-                              <div class="text-3xl font-black">{{ myScore }}</div>
-<div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
-                                          {{ roundLocked ? '✓ locked in' : '● pick a hand' }}
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl shadow-lg">
+                                    ✊
+                              </div>
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">You</div>
+                                    <div class="truncate text-base font-black">{{ myScore }} {{ myScore === 1 ? 'round' : 'rounds' }}</div>
+                              </div>
+                              <div v-if="phase === 'battle'" class="shrink-0 text-lg font-black"
+                                    :class="roundLocked ? 'animate-pulse' : 'opacity-40'">
+                                    {{ roundLocked ? '✓' : '●' }}
                               </div>
                         </div>
                         <div :class="opponentCardClass"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-sm font-bold truncate">
-                                    {{ opponentName || "opponent" }}
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl shadow-lg">
+                                    ✌️
                               </div>
-                              <div class="text-3xl font-black">{{ oppScore }}</div>
-<div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
-                                          {{ roundLocked ? '… throwing' : 'waiting' }}
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">Opponent</div>
+                                    <div class="truncate text-base font-black">{{ opponentName || "Playing…" }}</div>
+                              </div>
+                              <div v-if="phase === 'battle'" class="shrink-0 text-lg font-black"
+                                    :class="!roundLocked ? 'animate-pulse' : 'opacity-40'">
+                                    {{ !roundLocked ? '●' : '…' }}
                               </div>
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl text-center">
-                        <p class="text-sm font-bold" :class="statusColor">
-                              {{ status || roundStatus }}
-                        </p>
-                        <p class="text-xs text-slate-500 mt-1">
-                              First to {{ winTarget }} round wins takes the match
-                        </p>
+                  <!-- Status pill -->
+                  <div class="mx-auto w-fit rounded-full bg-white/80 px-6 py-2 text-center shadow-[0_4px_0_rgba(0,0,0,0.12)]">
+                        <p class="text-sm font-black" :class="statusColor">{{ status || roundStatus }}</p>
+                        <p class="mt-0.5 text-xs font-bold text-slate-500">First to {{ winTarget }} round wins takes the match</p>
                   </div>
 
-                  <div class="mt-3 grid grid-cols-2 gap-3 md:w-2/3 w-full mx-auto">
-                        <div class="rounded-2xl p-3 bg-white/60 shadow-xl text-center">
-                              <p class="text-xs font-bold text-slate-600 mb-1">Your hand</p>
+                  <!-- Hands -->
+                  <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-3xl bg-white/60 p-3 text-center shadow-[0_6px_0_rgba(0,0,0,0.14)]">
+                              <p class="mb-1 text-xs font-black text-slate-600">Your hand</p>
                               <div class="text-5xl" :class="myPick ? 'rps-pop' : 'opacity-40'">
                                     {{ myHandIcon }}
                               </div>
                         </div>
-                        <div class="rounded-2xl p-3 bg-white/60 shadow-xl text-center">
-                              <p class="text-xs font-bold text-slate-600 mb-1 truncate">
-                                    {{ opponentName || "Opponent" }}'s hand
-                              </p>
+                        <div class="rounded-3xl bg-white/60 p-3 text-center shadow-[0_6px_0_rgba(0,0,0,0.14)]">
+                              <p class="mb-1 text-xs font-black text-slate-600 truncate">{{ opponentName || "Opponent" }}'s hand</p>
                               <div class="text-5xl" :class="oppPick ? 'rps-pop' : 'opacity-40'">
                                     {{ oppHandIcon }}
                               </div>
                         </div>
                   </div>
 
-                  <div class="mt-3 grid grid-cols-3 gap-2 md:w-2/3 w-full mx-auto">
+                  <!-- Choice buttons -->
+                  <div class="grid grid-cols-3 gap-2">
                         <div v-for="c in choices" :key="c.id" @click="pickHand(c.id)"
                               :class="handClass(c.id)">
                               <div class="text-4xl">{{ c.icon }}</div>
-                              <div class="text-sm font-bold">{{ c.label }}</div>
+                              <div class="text-sm font-black">{{ c.label }}</div>
                         </div>
                   </div>
 
-                  <div class="mt-3 text-center text-xs text-slate-600 bg-white/50 rounded-xl py-1 md:w-2/3 w-full mx-auto">
-                        Round {{ round }} — both players throw at once; whoever wins 2 rounds takes it
+                  <!-- Round info -->
+                  <div class="mx-auto w-fit rounded-full bg-white/50 px-5 py-1 text-center text-xs font-bold text-slate-600 shadow-sm">
+                        Round {{ round }} — both players throw at once
                   </div>
 
-                  <div class="mt-2 flex gap-2 justify-center">
+                  <!-- Action buttons -->
+                  <div class="flex justify-center gap-3 pt-1">
                         <button v-if="phase === 'over'" @click="requestRematch" :disabled="rematchRequested"
-                              class="rounded-2xl px-4 py-1.5 bg-green-600 text-white text-sm font-bold shadow-xl"
-                              :class="rematchRequested ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95 transition-all'">
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-5 py-2.5 text-sm font-black text-white">
                               {{ rematchRequested ? "⏳ Waiting for opponent..." : "↻ Play again" }}
                         </button>
-                        <button @click="leaveRoom"
-                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
-                              Leave room
+                        <button @click="leaveGame"
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 px-5 py-2.5 text-sm font-black text-white">
+                              🏠 Leave game
                         </button>
+                        <!-- <button @click="leaveRoom"
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 px-5 py-2.5 text-sm font-black text-white">
+                              Leave room
+                        </button> -->
                   </div>
 
+                  <!-- Opponent rematch pill -->
                   <div v-if="rematchFromOpponent && phase === 'over'"
                         class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60]">
-                        <div class="ttt-banner rounded-2xl px-5 py-3 text-center shadow-2xl bg-white/95 text-slate-900">
+                        <div class="howto-pop rounded-2xl bg-white/95 px-5 py-3 text-center text-slate-900 shadow-2xl">
                               <div class="text-sm font-black">{{ opponentName || "Opponent" }} wants a rematch</div>
                               <button @click="requestRematch"
-                                    class="mt-2 rounded-2xl bg-green-600 text-white text-sm font-bold px-4 py-1.5 shadow-xl">
+                                    class="btn-bubble mt-2 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-4 py-1.5 text-sm font-black text-white">
                                     Play again
                               </button>
                         </div>
                   </div>
 
+                  <!-- Result overlay -->
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
-                        <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white w-80 max-w-full mx-4"
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">
                                     {{ result === 'won' ? '🎉' : '😢' }}
@@ -305,14 +368,16 @@ Vue.component("rps-view", {
                               <div class="text-3xl md:text-4xl font-black">
                                     {{ result === 'won' ? 'You Win!' : 'You Lose' }}
                               </div>
-                              <div class="mt-2 text-white/80 text-sm font-bold">
+                              <div class="mt-2 text-sm font-bold text-white/85">
                                     You {{ myScore }} — {{ opponentName || "Opponent" }} {{ oppScore }}
                               </div>
-                              <button @click.stop="requestRematch" :disabled="rematchRequested"
-                                    class="mt-4 rounded-full bg-white/20 hover:bg-white/30 px-4 py-1.5 text-sm font-bold transition-colors">
-                                    {{ rematchRequested ? "Waiting for opponent..." : "↻ Play again" }}
-                              </button>
-                              <p class="mt-2 text-white/70 text-xs">
+                              <div class="mt-5 flex justify-center gap-3">
+                                    <button @click.stop="requestRematch" :disabled="rematchRequested"
+                                          class="btn-bubble rounded-2xl bg-white/25 px-4 py-2 text-sm font-black">
+                                          {{ rematchRequested ? "Waiting..." : "↻ Play again" }}
+                                    </button>
+                              </div>
+                              <p class="mt-2 text-xs font-bold text-white/70">
                                     Both players click Play again to start a new match
                               </p>
                         </div>

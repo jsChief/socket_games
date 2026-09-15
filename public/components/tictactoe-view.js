@@ -19,14 +19,14 @@ Vue.component("tictactoe-view", {
             meCardClass() {
                   if (this.gameOver) return "bg-slate-700/80 text-white";
                   if (this.myTurn)
-                        return "bg-green-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
-                  return "bg-white/60 text-slate-900";
+                        return "bg-gradient-to-br from-green-400 to-emerald-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
+                  return "bg-white/60 text-slate-800";
             },
             opponentCardClass() {
                   if (this.gameOver) return "bg-slate-700/80 text-white";
                   if (!this.myTurn && this.opponentName)
-                        return "bg-orange-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
-                  return "bg-white/60 text-slate-900";
+                        return "bg-gradient-to-br from-orange-400 to-rose-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
+                  return "bg-white/60 text-slate-800";
             },
             turnText() {
                   if (this.gameOver) return "Game over";
@@ -35,12 +35,17 @@ Vue.component("tictactoe-view", {
                         ? this.opponentName + "'s turn..."
                         : "Waiting for opponent...";
             },
+            turnTextClass() {
+                  if (this.gameOver) return "text-slate-800";
+                  if (this.myTurn) return "text-green-700";
+                  return "text-orange-600";
+            },
             resultBannerClass() {
                   if (!this.result) return "";
                   if (this.result.type === "win")
-                        return "bg-gradient-to-br from-green-500 to-emerald-700";
+                        return "bg-gradient-to-br from-green-400 to-emerald-600";
                   if (this.result.type === "lose")
-                        return "bg-gradient-to-br from-red-500 to-rose-700";
+                        return "bg-gradient-to-br from-rose-400 to-red-600";
                   return "bg-gradient-to-br from-slate-500 to-slate-700";
             },
       },
@@ -169,6 +174,39 @@ Vue.component("tictactoe-view", {
                   if (this.animIndex === i) c += "ttt-pop";
                   return c;
             },
+            openHelp() {
+                  openHowTo({
+                        icon: "⭕",
+                        title: "Tic Tac Toe",
+                        tagline: "Three in a row wins!",
+                        accent: "from-rose-500 to-orange-400",
+                        steps: [
+                              {
+                                    icon: "✖️",
+                                    title: "Take turns",
+                                    text: "You and your opponent pick a mark — X or O. Tap an empty square to place yours.",
+                              },
+                              {
+                                    icon: "🏆",
+                                    title: "Line up 3",
+                                    text: "Get three of your marks in a row — across, down, or diagonal — to win the game.",
+                              },
+                              {
+                                    icon: "🤝",
+                                    title: "Draw",
+                                    text: "If the board fills up with no line of three, the game is a draw.",
+                              },
+                              {
+                                    icon: "↻",
+                                    title: "Rematch",
+                                    text: 'Hit "New Game", then accept when your opponent asks for one too.',
+                              },
+                        ],
+                  });
+            },
+            leaveGame() {
+                  this.$emit("leave-game");
+            },
             leaveRoom() {
                   this.$emit("leave-room");
             },
@@ -177,89 +215,130 @@ Vue.component("tictactoe-view", {
             clearTimeout(this.animTimer);
       },
       template: `
-            <div>
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-white/90 font-bold shadow">
-                        Christy's Tic Tac Toe
-                  </p>
-
-                  <div class="mt-2 grid grid-cols-2 gap-2">
-                        <div :class="meCardClass"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-2xl font-black">{{ mySymbol ? display(mySymbol) : 'X' }}</div>
-                              <div class="text-sm font-bold">You ({{ mySymbol ? display(mySymbol) : '—' }})</div>
-                              <div v-if="!gameOver" class="text-xs mt-1 font-bold">
-                                    {{ myTurn ? '● Your turn' : 'waiting' }}
+            <div class="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
+                  <!-- Header -->
+                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-500 to-orange-400 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="deco-circle -right-6 -top-10 size-32"></div>
+                        <div class="deco-circle -bottom-12 left-8 size-24"></div>
+                        <div class="relative z-10 flex items-center gap-8 lg:gap-3">
+                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">⭕</span>
+                              <div class="lg:flex lg:w-full lg:place-content-between">
+                                    <div class="min-w-0 flex-1">
+                                    <h1 class="text-3xl font-black leading-none">Tic Tac Toe</h1>
+                                    <p class="mt-1 text-sm font-bold text-white/85">Three in a row wins!</p>
                               </div>
-                        </div>
-                        <div :class="opponentCardClass"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-2xl font-black">{{ opponentSymbol ? display(opponentSymbol) : 'O' }}</div>
-                              <div class="text-sm font-bold truncate">{{ opponentName || "opponent" }}</div>
-                              <div v-if="!gameOver" class="text-xs mt-1 font-bold">
-                                    {{ myTurn ? 'waiting' : '● their turn' }}
+                              <button @click="openHelp"
+                                    class="btn-bubble shrink-0 rounded-2xl bg-white/25 px-3 py-2 text-sm font-black hover:bg-white/35">
+                                    ❓ How to play
+                              </button>
                               </div>
                         </div>
                   </div>
 
-                  <div
-                        class="md:w-1/2 w-full rounded-2xl shadow-xl mx-auto mt-3 p-2 bg-orange-600/90">
-                        <div class="grid grid-cols-3 gap-1 rounded-xl p-1">
+                  <!-- Player cards -->
+                  <div class="grid grid-cols-2 gap-3">
+                        <div :class="meCardClass"
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl font-black text-slate-700 shadow-lg">
+                                    {{ mySymbol ? display(mySymbol) : 'X' }}
+                              </div>
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">You</div>
+                                    <div class="truncate text-base font-black">
+                                          {{ mySymbol ? 'Mark ' + display(mySymbol) : 'Waiting…' }}
+                                    </div>
+                              </div>
+                              <div v-if="!gameOver" class="shrink-0 text-lg font-black"
+                                    :class="myTurn ? 'animate-pulse' : 'opacity-40'">
+                                    {{ myTurn ? '●' : '○' }}
+                              </div>
+                        </div>
+                        <div :class="opponentCardClass"
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl font-black text-slate-700 shadow-lg">
+                                    {{ opponentSymbol ? display(opponentSymbol) : 'O' }}
+                              </div>
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">Opponent</div>
+                                    <div class="truncate text-base font-black">
+                                          {{ opponentName || (opponentSymbol ? 'Mark ' + display(opponentSymbol) : 'Waiting…') }}
+                                    </div>
+                              </div>
+                              <div v-if="!gameOver" class="shrink-0 text-lg font-black"
+                                    :class="!myTurn ? 'animate-pulse' : 'opacity-40'">
+                                    {{ !myTurn ? '●' : '○' }}
+                              </div>
+                        </div>
+                  </div>
+
+                  <!-- Turn pill -->
+                  <div class="mx-auto w-fit rounded-full bg-white/80 px-6 py-2 text-center shadow-[0_4px_0_rgba(0,0,0,0.12)]">
+                        <p class="text-sm font-black" :class="turnTextClass">{{ turnText }}</p>
+                        <p v-if="mySymbol && !gameOver" class="text-xs font-bold text-slate-500">
+                              First to 3 marks in a row wins
+                        </p>
+                  </div>
+
+                  <!-- Board -->
+                  <div class="mx-auto w-full max-w-sm rounded-3xl bg-gradient-to-br from-rose-500 to-orange-400 p-2 shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="grid grid-cols-3 gap-2 rounded-2xl bg-white/20 p-2">
                               <button v-for="(c, i) in cells" :key="i" @click="play(i)"
-                                    :class="['ttt-cell flex items-center justify-center h-16 md:h-20 text-3xl md:text-5xl font-black rounded-xl transition-all duration-150', cellClass(i)]">
+                                    :class="['flex items-center justify-center h-16 md:h-20 text-3xl md:text-5xl font-black rounded-xl transition-all duration-150', cellClass(i)]">
                                     {{ display(c) }}
                               </button>
                         </div>
                   </div>
 
-                  <div class="mt-3 text-center">
-                        <div :class="gameOver ? 'bg-slate-700/80 text-white' : myTurn ? 'bg-green-600 text-white' : 'bg-white/80 text-slate-700'"
-                              class="rounded-2xl px-4 py-2 w-fit mx-auto font-bold shadow-xl">
-                              {{ turnText }}
-                        </div>
-                  </div>
-
-                  <div class="mt-2 flex gap-2 justify-center">
+                  <!-- Action buttons -->
+                  <div class="flex justify-center gap-3 pt-1">
                         <button @click="requestReset" :disabled="resetPending"
-                              :class="resetPending ? 'bg-slate-600 text-white/70 cursor-not-allowed' : 'bg-green-600 text-white hover:scale-105 active:scale-95'"
-                              class="rounded-2xl px-4 py-1.5 text-sm font-bold shadow-xl transition-all">
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-5 py-2.5 text-sm font-black text-white">
                               {{ resetPending ? "⏳ Waiting for opponent..." : "↻ New Game" }}
                         </button>
-                        <button @click="leaveRoom"
-                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
-                              Leave room
+                        <button @click="leaveGame"
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 px-5 py-2.5 text-sm font-black text-white">
+                              🏠 Leave game
                         </button>
+                        <!-- <button @click="leaveRoom"
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 px-5 py-2.5 text-sm font-black text-white">
+                              Leave room
+                        </button> -->
                   </div>
 
+                  <!-- Reset request overlay -->
                   <div v-if="resetFromName" @click="declineReset"
-                        class="fixed inset-0 z-[75] flex items-center justify-center bg-black/40">
-                        <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl bg-white/95 text-slate-900 w-80 max-w-full mx-4"
+                        class="fixed inset-0 z-[75] flex items-center justify-center bg-black/45 backdrop-blur-sm">
+                        <div class="howto-pop w-80 max-w-full rounded-3xl bg-white/95 p-6 text-center text-slate-900 shadow-2xl"
                               @click.stop>
                               <div class="text-5xl mb-2">↻</div>
                               <div class="text-xl font-black">{{ resetFromName }} wants a new game</div>
                               <div class="mt-4 flex justify-center gap-3">
                                     <button @click="acceptReset"
-                                          class="rounded-2xl bg-green-600 text-white font-bold px-5 py-2 shadow-xl">
+                                          class="btn-bubble rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-5 py-2 text-sm font-black text-white">
                                           Accept
                                     </button>
                                     <button @click="declineReset"
-                                          class="rounded-2xl bg-red-600 text-white font-bold px-5 py-2 shadow-xl">
+                                          class="btn-bubble rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 px-5 py-2 text-sm font-black text-white">
                                           Decline
                                     </button>
                               </div>
                         </div>
                   </div>
 
+                  <!-- Result overlay -->
                   <div v-if="result" @click="dismissResult"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
-                        <div class="ttt-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white"
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">{{ result.emoji }}</div>
                               <div class="text-3xl md:text-4xl font-black">{{ result.title }}</div>
-                              <div class="mt-2 text-white/80 text-sm">tap "New Game" to rematch</div>
-                              <button
-                                    class="mt-4 rounded-full bg-white/20 hover:bg-white/30 px-4 py-1.5 text-sm font-bold transition-colors">
-                                    Close
-                              </button>
+                              <div class="mt-2 text-sm font-bold text-white/85">tap "New Game" to rematch</div>
+                              <div class="mt-5 flex justify-center gap-3">
+                                    <button v-if="gameOver" @click.stop="requestReset" :disabled="resetPending"
+                                          class="btn-bubble rounded-2xl bg-white/25 px-4 py-2 text-sm font-black">
+                                          {{ resetPending ? "⏳ Waiting..." : "↻ New Game" }}
+                                    </button>
+                              </div>
                         </div>
                   </div>
             </div>

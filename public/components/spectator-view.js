@@ -1,11 +1,14 @@
 // Spectator view: a read-only window into a full room's game. Shows the two
 // players, whose turn it is, and the live board for Tic-Tac-Toe / Reversi /
-// Find My Pizza (pizza hides the secret slice placements, only showing probes).
+// Find My Pizza / Connect 4 (pizza hides the secret slice placements, only
+// showing probes).
 var SPECTATE_TTT_LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
   [0, 3, 6], [1, 4, 7], [2, 5, 8],
   [0, 4, 8], [2, 4, 6],
 ];
+var SPECTATE_C4_ROWS = 6;
+var SPECTATE_C4_COLS = 7;
 
 Vue.component("spectator-view", {
       data() {
@@ -44,6 +47,15 @@ Vue.component("spectator-view", {
                         result: null,
                         names: [],
                   },
+                  c4: {
+                        board: [],
+                        currentSymbol: null,
+                        active: false,
+                        gameOver: false,
+                        winLine: [],
+                        names: [],
+                        symbols: [],
+                  },
                   winLine: null,
             };
       },
@@ -64,6 +76,7 @@ Vue.component("spectator-view", {
                   if (this.game === "reversi") return this.rev.over;
                   if (this.game === "pizza") return this.pizza.phase === "over";
                   if (this.game === "rps") return this.rps.result !== null;
+                  if (this.game === "connect4") return this.c4.gameOver;
                   return false;
             },
             currentTurnIndex() {
@@ -77,6 +90,10 @@ Vue.component("spectator-view", {
                   if (this.game === "pizza") {
                         return this.pizza.phase === "battle" ? this.pizza.turn : -1;
                   }
+                  if (this.game === "connect4") {
+                        if (!this.c4.active || this.c4.gameOver) return -1;
+                        return this.c4.symbols.indexOf(this.c4.currentSymbol);
+                  }
                   return -1;
             },
             displayPlayers() {
@@ -89,13 +106,17 @@ Vue.component("spectator-view", {
                                           ? this.pizza.names
                                           : this.game === "rps"
                                                 ? this.rps.names
-                                                : null;
+                                                : this.game === "connect4"
+                                                      ? this.c4.names
+                                                      : null;
                   const symbols =
                         this.game === "tictactoe"
                               ? this.ttt.symbols
                               : this.game === "reversi"
                                     ? this.rev.symbols
-                                    : null;
+                                    : this.game === "connect4"
+                                          ? this.c4.symbols
+                                          : null;
                   const turnIdx = this.currentTurnIndex;
                   const over = this.gameOverStatus;
                   return [0, 1].map((i) => ({
@@ -132,6 +153,11 @@ Vue.component("spectator-view", {
                   if (this.game === "rps") {
                         if (over) return "Game over — Rock Paper Scissors";
                         return "Both players are throwing ✊✋✌";
+                  }
+                  if (this.game === "connect4") {
+                        if (over) return "Game over — Connect 4";
+                        const idx = this.c4.symbols.indexOf(this.c4.currentSymbol);
+                        return (this.c4.names[idx] || "Player") + "'s turn";
                   }
                   return "Waiting for a game to start...";
             },
@@ -198,6 +224,31 @@ Vue.component("spectator-view", {
                         names: d.names || [],
                   };
                   this.winLine = null;
+            },
+            handleConnect4(d) {
+                  this.game = "connect4";
+                  this.c4 = {
+                        board: (d.board || []).slice(),
+                        currentSymbol: d.currentSymbol || null,
+                        active: !!d.active,
+                        gameOver: !!d.gameOver,
+                        winLine: d.winLine || [],
+                        names: d.names || [],
+                        symbols: d.symbols || [],
+                  };
+                  this.winLine = null;
+            },
+            c4DiscClass(symbol, i) {
+                  let c = "w-full h-full rounded-full shadow-lg transition-all duration-150 ";
+                  const halo =
+                        this.c4.winLine.indexOf(i) !== -1
+                              ? "ring-4 ring-yellow-300 shadow-[0_0_22px_6px_rgba(250,204,21,0.55)] "
+                              : "";
+                  const color =
+                        symbol === "red"
+                              ? "bg-gradient-to-br from-red-400 to-red-600 "
+                              : "bg-gradient-to-br from-yellow-300 to-amber-500 ";
+                  return c + color + halo;
             },
             rpsIcon(choice) {
                   const icons = { rock: "✊", paper: "✋", scissors: "✌️" };
@@ -269,6 +320,15 @@ Vue.component("spectator-view", {
                         result: null,
                         names: [],
                   };
+                  this.c4 = {
+                        board: [],
+                        currentSymbol: null,
+                        active: false,
+                        gameOver: false,
+                        winLine: [],
+                        names: [],
+                        symbols: [],
+                  };
             },
       },
       template: `
@@ -277,7 +337,7 @@ Vue.component("spectator-view", {
                         👁 Spectator · Room {{ code }}
                   </p>
                   <p class="mt-1 text-center text-xs text-slate-600 bg-white/60 rounded-xl py-1">
-                        {{ spectatorCount }} watching · Tic Tac Toe / Pizza / Reversi / RPS are live right here
+                        {{ spectatorCount }} watching · Tic Tac Toe / Pizza / Reversi / RPS / Connect 4 are live right here
                   </p>
 
                   <div class="mt-2 grid grid-cols-2 gap-2">
@@ -379,6 +439,20 @@ Vue.component("spectator-view", {
                                     Round {{ rps.round }} · first to 2 round wins takes the match
                               </p>
                         </div>
+                  </div>
+
+                  <!-- Connect 4 board -->
+                  <div v-if="game === 'connect4'"
+                        class="md:w-2/3 w-full max-w-lg mx-auto mt-3 rounded-3xl p-2 bg-sky-700/90 shadow-2xl">
+                        <div class="bg-sky-800/80 rounded-2xl p-2 grid grid-cols-7 gap-1">
+                              <div v-for="(cell, i) in c4.board" :key="i"
+                                    class="aspect-square rounded-full bg-sky-950/60 flex items-center justify-center p-[6%]">
+                                    <div v-if="cell !== null" :class="c4DiscClass(cell, i)"></div>
+                              </div>
+                        </div>
+                        <p class="text-center text-xs font-bold text-white/80 py-1">
+                              {{ displayPlayers[0].name }} 🔴 vs 🟡 {{ displayPlayers[1].name }}
+                        </p>
                   </div>
 
                   <div class="mt-3 flex gap-2 justify-center pb-4">

@@ -136,7 +136,7 @@ Vue.component("chat-view", {
                         id: ++this.messageIdCounter,
                         text: messageText,
                         replyTo: replyText,
-                        class: "rounded-r-xl rounded-bl-xl bg-gray-200 ",
+                        class: "rounded-r-xl rounded-bl-xl bg-gray-200 text-slate-700 ",
                         source: "other",
                         time: new Date().toLocaleTimeString(),
                   });
@@ -171,7 +171,7 @@ Vue.component("chat-view", {
                   socket.emit("user-message", payload);
                   this.addMessage(
                         payload,
-                        "rounded-l-xl rounded-br-xl text-right bg-orange-100 ",
+                        "rounded-l-xl rounded-br-xl text-right bg-orange-100 text-slate-800 ",
                         "me",
                   );
                   this.replyTarget = null;
@@ -190,7 +190,7 @@ Vue.component("chat-view", {
                   socket.emit("user-message", payload);
                   this.addMessage(
                         payload,
-                        "rounded-l-xl rounded-br-xl text-right bg-orange-100 ",
+                        "rounded-l-xl rounded-br-xl text-right bg-orange-100 text-slate-800 ",
                         "me",
                   );
                   this.replyTarget = null;
@@ -284,18 +284,35 @@ Vue.component("chat-view", {
                   <!-- chat overlay -->
                   <div ref="overlay" v-show="chatOpen" id="chatOverlay"
                         class="fixed inset-0 z-50 flex flex-col bg-white/95">
-                        <div class="w-full flex-1 flex flex-col min-h-0 bg-white/20 p-1">
-                              <div
-                                    class="flex place-content-between items-center w-full rounded-xl h-8 p-1">
-                                    <p class="px-2 py-0.5 text-sm rounded-xl" :class="opponentClass">
-                                          {{ opponentLabel || "player 2" }}
-                                    </p>
-                                    <p class="px-2 py-0.5 text-sm rounded-xl" :class="meClass">
-                                          {{ meLabel }}
-                                    </p>
+                        <!-- playful gradient header -->
+                        <div
+                              class="relative shrink-0 overflow-hidden bg-gradient-to-br from-indigo-500 to-fuchsia-500 px-4 py-3 text-white shadow-[0_6px_0_rgba(0,0,0,0.18)]">
+                              <div class="deco-circle -right-8 -top-12 size-28"></div>
+                              <div class="deco-circle -bottom-10 left-10 size-20"></div>
+                              <div class="relative z-10 flex items-center justify-between gap-2">
+                                    <div class="flex min-w-0 items-center gap-2">
+                                          <span class="text-2xl">💬</span>
+                                          <span class="whitespace-nowrap text-xl font-black">Chat</span>
+                                    </div>
+                                    <!-- <div class="flex items-center gap-2">
+                                          <span class="px-2 py-0.5 text-sm rounded-xl whitespace-nowrap"
+                                                :class="opponentClass">
+                                                {{ opponentLabel || "player 2" }}
+                                          </span>
+                                          <span class="px-2 py-0.5 text-sm rounded-xl whitespace-nowrap" :class="meClass">
+                                                {{ meLabel }}
+                                          </span>
+                                    </div> -->
+                                    <button @click="close" title="Close chat"
+                                          class="btn-bubble grid size-9 shrink-0 place-items-center rounded-xl bg-white/25 text-lg font-black">
+                                          ✕
+                                    </button>
                               </div>
+                        </div>
+
+                        <div class="flex min-h-0 flex-1 flex-col p-2">
                               <div ref="display"
-                                    class="flex-1 min-h-0 rounded-xl w-full overflow-y-scroll bg-neutral-400/40 my-1">
+                                    class="flex-1 min-h-0 w-full overflow-y-scroll rounded-2xl border border-white/40 bg-white/30 p-1">
                                     <div v-for="m in messages" :key="m.id"
                                           class="w-full px-2 mt-[6px] flex"
                                           :class="'place-content-' + pos(m.source)">
@@ -317,17 +334,17 @@ Vue.component("chat-view", {
                                     </div>
                               </div>
                               <div v-show="typingName"
-                                    class="px-2 py-1 text-xs italic text-black bg-yellow-200/80 w-fit rounded-lg mb-1">
+                                    class="mb-1 w-fit rounded-lg bg-yellow-200/80 px-2 py-1 text-xs italic text-black">
                                     {{ typingName }} is typing...
                               </div>
                               <div v-if="replyTarget"
-                                    class="mt-2 rounded-xl border border-slate-300 bg-white/80 p-2 text-sm text-slate-900">
+                                    class="mt-2 rounded-2xl border border-slate-200 bg-white/80 p-2 text-sm shadow-sm">
                                     <div class="flex w-full">
-                                          <div class="font-semibold text-sm pr-2 text-slate-500">Replying:</div>
+                                          <div class="pr-2 text-sm font-semibold text-slate-500">Replying:</div>
                                           <div class="truncate text-sm text-slate-900">{{ replyTarget.text }}</div>
                                     </div>
                                     <button @click="replyTarget = null"
-                                          class="mt-1 text-xs bg-red-600 text-white p-1 rounded-xl">
+                                          class="mt-1 rounded-xl bg-red-600 p-1 text-xs text-white">
                                           <span class="fas fa-x"></span> Cancel
                                     </button>
                               </div>
@@ -372,8 +389,8 @@ Vue.component("chat-view", {
 
                                     <div class="flex items-center gap-2 mb-1">
                                           <button @click="quickChatOpen = !quickChatOpen"
-                                                :class="quickChatOpen ? 'bg-slate-700 text-white' : 'bg-gradient-to-br from-yellow-400 to-orange-600 text-white'"
-                                                class="shrink-0 px-3 py-1 text-xs font-bold rounded-xl shadow hover:scale-105 active:scale-95 transition-transform">
+                                                :class="quickChatOpen ? 'bg-slate-700 text-white' : 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'"
+                                                class="shrink-0 px-3 py-1 text-xs font-black rounded-2xl shadow hover:scale-105 active:scale-95 transition-transform">
                                                 {{ quickChatOpen ? "Hide" : "💬 Quick Chat" }}
                                           </button>
                                           <div v-if="quickChatOpen"
@@ -387,12 +404,11 @@ Vue.component("chat-view", {
                                     </div>
 
                                     <div class="h-fit w-full rounded-2xl flex items-center place-content-between">
-                                    
-                                          <input placeholder="enter text..." type="text" v-model="inputValue"
+                                          <input placeholder="Type a message..." type="text" v-model="inputValue"
                                                 @input="onInput" @keyup.enter="sendMessage"
-                                                class="placeholder-gray-600 p-2 h-10 w-87/100 rounded-2xl border border-white/40 shadow" />
+                                                class="min-w-0 flex-1 placeholder-gray-600 rounded-2xl border border-white/40 bg-white/70 p-2 h-10 shadow-sm focus:outline-none" />
                                           <button @click="sendMessage"
-                                                class="rounded-2xl p-2 shadow size-10 bg-gradient-to-br from-yellow-400 to-orange-600 fa fa-arrow-up text-xl"></button>
+                                                class="btn-bubble grid size-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 fa fa-arrow-up text-xl text-white"></button>
                                     </div>
                               </div>
                         </div>

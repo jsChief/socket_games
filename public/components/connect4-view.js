@@ -1,97 +1,49 @@
-var REVERSI_SIZE = 8;
-var REVERSI_DIRS = [
-  [-1, -1],
-  [-1, 0],
-  [-1, 1],
-  [0, -1],
-  [0, 1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-];
+var CONNECT4_ROWS = 6;
+var CONNECT4_COLS = 7;
 
-// Cells that would flip if `symbol` played at `cell` (empty when illegal).
-function revFlips(board, symbol, cell) {
-  if (board[cell] !== "") return [];
-  var opp = symbol === "b" ? "w" : "b";
-  var row = Math.floor(cell / REVERSI_SIZE);
-  var col = cell % REVERSI_SIZE;
-  var flips = [];
-  for (var d = 0; d < REVERSI_DIRS.length; d++) {
-    var dr = REVERSI_DIRS[d][0];
-    var dc = REVERSI_DIRS[d][1];
-    var line = [];
-    var r = row + dr;
-    var c = col + dc;
-    while (r >= 0 && r < REVERSI_SIZE && c >= 0 && c < REVERSI_SIZE) {
-      var idx = r * REVERSI_SIZE + c;
-      if (board[idx] === "") break;
-      if (board[idx] === opp) {
-        line.push(idx);
-        r += dr;
-        c += dc;
-        continue;
-      }
-      flips = flips.concat(line);
-      break;
-    }
+// Bottom-most empty row for a disc dropped into `col`, or -1 if full.
+function c4DropRow(board, col) {
+  for (let r = CONNECT4_ROWS - 1; r >= 0; r--) {
+    if (board[r * CONNECT4_COLS + col] === null) return r;
   }
-  return flips;
+  return -1;
 }
 
-function revLegalMoves(board, symbol) {
-  var moves = [];
-  for (var i = 0; i < board.length; i++) {
-    if (board[i] === "" && revFlips(board, symbol, i).length > 0) moves.push(i);
-  }
-  return moves;
-}
-
-Vue.component("reversi-view", {
+Vue.component("connect4-view", {
       data() {
             return {
-                  board: Array(64).fill(""),
+                  board: Array(42).fill(null),
                   mySymbol: "",
                   opponentName: "",
                   myTurn: false,
                   phase: "idle", // idle | battle | over
                   result: null, // won | lost | draw
                   lastCell: null,
-                  flipCells: [],
-                  flipTimer: null,
+                  winLine: [],
+                  hoverCol: -1,
                   status: "",
-                  myCount: 0,
-                  oppCount: 0,
                   rematchRequested: false,
                   rematchFromOpponent: false,
                   overlayDismissed: false,
             };
       },
       computed: {
-            counts() {
-                  let b = 0,
-                        w = 0;
-                  for (const c of this.board) {
-                        if (c === "b") b++;
-                        else if (c === "w") w++;
-                  }
-                  return { b, w };
-            },
-            totalCells() {
-                  return this.counts.b + this.counts.w;
-            },
-            myCountC() {
-                  return this.mySymbol === "b" ? this.counts.b : this.counts.w;
-            },
-            oppCountC() {
-                  return this.mySymbol === "b" ? this.counts.w : this.counts.b;
+            cols() {
+                  return Array.from({ length: CONNECT4_COLS }, (_, i) => i);
             },
             opponentSymbol() {
-                  return this.mySymbol === "b" ? "w" : "b";
+                  return this.mySymbol === "red" ? "yellow" : "red";
             },
-            legalMoves() {
-                  if (this.phase !== "battle" || !this.myTurn) return [];
-                  return revLegalMoves(this.board, this.mySymbol);
+            playableCols() {
+                  const cols = [];
+                  if (this.phase !== "battle" || !this.myTurn) return cols;
+                  for (let c = 0; c < CONNECT4_COLS; c++) {
+                        if (c4DropRow(this.board, c) !== -1) cols.push(c);
+                  }
+                  return cols;
+            },
+            discsOnBoard() {
+                  return this.board.filter((x) => x !== null).length;
             },
             statusText() {
                   if (this.phase === "idle") return "awaiting a game";
@@ -102,10 +54,13 @@ Vue.component("reversi-view", {
                               : (this.opponentName || "Opponent") + " wins.";
                   }
                   return this.myTurn
-                        ? "Your turn — place a disc to flank your opponent"
-                        : "Waiting for " +
-                                (this.opponentName || "opponent") +
-                                "...";
+                        ? "Your turn — drop a disc"
+                        : "Waiting for " + (this.opponentName || "opponent") + "...";
+            },
+            statusColor() {
+                  if (this.phase === "over") return "text-slate-800";
+                  if (this.myTurn) return "text-green-700";
+                  return "text-orange-600";
             },
             myCardClass() {
                   if (this.phase !== "battle" || this.phase === "over")
@@ -128,57 +83,54 @@ Vue.component("reversi-view", {
                         ? "bg-gradient-to-br from-green-400 to-emerald-600"
                         : "bg-gradient-to-br from-rose-400 to-red-600";
             },
-            statusColor() {
-                  if (this.phase === "over") return "text-slate-800";
-                  if (this.myTurn) return "text-green-700";
-                  return "text-orange-600";
-            },
       },
       methods: {
             start(data) {
                   this.resetView();
                   this.phase = "battle";
-                  this.board = (data.board && data.board.slice()) || Array(64).fill("");
                   this.mySymbol = data.symbol;
                   this.opponentName = data.opponentName || "";
-                  this.myTurn = this.mySymbol === "b";
+                  this.myTurn = this.mySymbol === "red";
                   this.status = this.myTurn
-                        ? "Black moves first — your turn"
+                        ? "Red moves first — your turn"
                         : "Waiting for " + this.opponentName + "...";
             },
             applyState(data) {
-                  const next = data.board || [];
-                  const flipped = [];
-                  for (let i = 0; i < next.length; i++) {
-                        if (this.board[i] !== next[i] && this.board[i] !== "") {
-                              flipped.push(i);
-                        }
-                  }
-                  this.board = next.slice();
+                  this.board = (data.board || Array(42).fill(null)).slice();
                   this.lastCell =
                         typeof data.lastCell === "number" ? data.lastCell : null;
-                  this.myTurn = data.currentSymbol === this.mySymbol;
-                  if (data.pass) {
-                        this.status =
-                              (this.opponentName || "Opponent") +
-                              " has no moves — turn skipped";
-                        playSound(serverMessageTone);
-                  } else if (this.phase === "battle" && this.myTurn) {
-                        this.status = "Your turn";
-                        playSound(serverMessageTone);
-                  } else if (this.phase === "battle") {
-                        this.status = "Waiting for " + (this.opponentName || "opponent") + "...";
+                  this.winLine = data.winLine || [];
+                  this.myTurn =
+                        !data.gameOver && data.currentSymbol === this.mySymbol;
+                  if (data.gameOver) this.phase = "over";
+                  if (!data.gameOver) {
+                        if (this.phase === "battle" && this.myTurn) {
+                              this.status = "Your turn — drop a disc";
+                              playSound(serverMessageTone);
+                        } else if (this.phase === "battle") {
+                              this.status =
+                                    "Waiting for " +
+                                    (this.opponentName || "opponent") +
+                                    "...";
+                        }
                   }
-                  this.setFlipCells(
-                        flipped.length ? flipped : [this.lastCell].filter(Boolean),
-                  );
             },
-            setFlipCells(cells) {
-                  clearTimeout(this.flipTimer);
-                  this.flipCells = cells || [];
-                  this.flipTimer = setTimeout(() => {
-                        this.flipCells = [];
-                  }, 500);
+            drop(col) {
+                  if (this.phase !== "battle" || !this.myTurn) return;
+                  if (this.playableCols.indexOf(col) === -1) {
+                        this.status = "That column is full.";
+                        playSound(messageTone);
+                        return;
+                  }
+                  const row = c4DropRow(this.board, col);
+                  const cell = row * CONNECT4_COLS + col;
+                  this.$set(this.board, cell, this.mySymbol);
+                  this.lastCell = cell;
+                  this.myTurn = false;
+                  this.status =
+                        "Waiting for " + (this.opponentName || "opponent") + "...";
+                  playSound(moveSound);
+                  socket.emit("connect4-drop", { col });
             },
             gameOver(data) {
                   this.phase = "over";
@@ -187,8 +139,7 @@ Vue.component("reversi-view", {
                         : data.won
                               ? "won"
                               : "lost";
-                  this.myCount = data.myCount;
-                  this.oppCount = data.oppCount;
+                  this.winLine = data.winLine || this.winLine;
                   this.myTurn = false;
                   this.overlayDismissed = false;
                   if (this.result === "won") playSound(win);
@@ -198,42 +149,48 @@ Vue.component("reversi-view", {
             info(msg) {
                   this.status = msg;
             },
-            play(i) {
-                  if (this.phase !== "battle" || !this.myTurn) return;
-                  if (this.board[i] !== "") return;
-                  const flips = revFlips(this.board, this.mySymbol, i);
-                  if (flips.length === 0) {
-                        this.status = "Not a legal move — you must flank a disc.";
-                        playSound(messageTone);
-                        return;
-                  }
-                  this.$set(this.board, i, this.mySymbol);
-                  for (const f of flips) this.$set(this.board, f, this.mySymbol);
-                  this.lastCell = i;
-                  this.myTurn = false;
-                  this.status = "";
-                  playSound(moveSound);
-                  socket.emit("reversi-move", { cell: i });
-            },
-            hoverClass(i) {
+            colClass(c) {
                   if (this.phase !== "battle" || !this.myTurn) return "";
-                  if (this.board[i] !== "") return "cursor-default";
-                  if (this.legalMoves.indexOf(i) !== -1)
-                        return "cursor-pointer hover:bg-emerald-700 hover:scale-105 active:scale-95";
-                  return "cursor-not-allowed";
+                  if (this.playableCols.indexOf(c) !== -1)
+                        return "cursor-pointer hover:scale-105 active:scale-95 transition-transform";
+                  return "";
             },
-            animClass(i) {
-                  let c = "";
-                  if (this.lastCell === i) c += "reversi-pop ";
-                  if (this.flipCells.indexOf(i) !== -1) c += "reversi-flip";
-                  return c;
+            ghostVisible(c) {
+                  return (
+                        this.phase === "battle" &&
+                        this.myTurn &&
+                        this.hoverCol === c &&
+                        this.playableCols.indexOf(c) !== -1
+                  );
+            },
+            discClass(symbol, i) {
+                  let c =
+                        "w-full h-full rounded-full shadow-lg transition-all duration-150 ";
+                  const halo =
+                        this.winLine && this.winLine.indexOf(i) !== -1
+                              ? "ring-4 ring-yellow-300 shadow-[0_0_22px_6px_rgba(250,204,21,0.55)] "
+                              : "";
+                  const color =
+                        symbol === "red"
+                              ? "bg-gradient-to-br from-red-400 to-red-600 "
+                              : "bg-gradient-to-br from-yellow-300 to-amber-500 ";
+                  if (this.lastCell === i) c += "c4-pop ";
+                  return c + color + halo;
+            },
+            ghostClass() {
+                  return (
+                        "aspect-square rounded-full mx-auto opacity-80 transition-all duration-150 " +
+                        (this.mySymbol === "red"
+                              ? "bg-gradient-to-br from-red-400 to-red-600 "
+                              : "bg-gradient-to-br from-yellow-300 to-amber-500 ")
+                  );
             },
             requestRematch() {
                   if (this.phase !== "over" || this.rematchRequested) return;
                   this.rematchRequested = true;
                   this.rematchFromOpponent = false;
                   this.status = "Waiting for opponent to rematch...";
-                  socket.emit("reversi-rematch");
+                  socket.emit("connect4-rematch");
             },
             rematchRequest() {
                   if (this.phase === "over") {
@@ -247,47 +204,45 @@ Vue.component("reversi-view", {
             },
             openHelp() {
                   openHowTo({
-                        icon: "⚫",
-                        title: "Reversi",
-                        tagline: "Flip the board to your color!",
-                        accent: "from-emerald-500 to-cyan-500",
+                        icon: "🔴",
+                        title: "Connect 4",
+                        tagline: "Four in a row wins!",
+                        accent: "from-blue-500 to-cyan-400",
                         steps: [
                               {
-                                    icon: "⬅️➡️",
-                                    title: "Flank to flip",
-                                    text: "Place a disc that sandwiches one or more of your opponent's discs — every sandwiched disc flips to your color.",
+                                    icon: "🔴",
+                                    title: "Drop a disc",
+                                    text: "Take turns dropping a disc into any open column — it falls to the lowest empty cell.",
                               },
                               {
-                                    icon: "✨",
-                                    title: "Legal moves",
-                                    text: "A move must flip at least one disc. Glowing dots mark the squares where you may play.",
+                                    icon: "🎯",
+                                    title: "Line up 4",
+                                    text: "Get 4 of your discs in a row — horizontal, vertical, or diagonal — to win the game.",
                               },
                               {
-                                    icon: "⏭️",
-                                    title: "Skipped turn",
-                                    text: "No legal moves? Your turn is skipped until you can play again.",
+                                    icon: "🤝",
+                                    title: "Draw",
+                                    text: "The board is full and nobody has four in a row? That's a draw.",
                               },
                               {
-                                    icon: "👑",
-                                    title: "Most discs wins",
-                                    text: "When the board fills up (or nobody can play), the player with the most discs wins.",
+                                    icon: "↻",
+                                    title: "Rematch",
+                                    text: "Both players press Play again to start a fresh game.",
                               },
                         ],
                   });
             },
             resetView() {
-                  clearTimeout(this.flipTimer);
-                  this.board = Array(64).fill("");
+                  this.board = Array(42).fill(null);
                   this.mySymbol = "";
                   this.opponentName = "";
                   this.myTurn = false;
                   this.phase = "idle";
                   this.result = null;
                   this.lastCell = null;
-                  this.flipCells = [];
+                  this.winLine = [];
+                  this.hoverCol = -1;
                   this.status = "";
-                  this.myCount = 0;
-                  this.oppCount = 0;
                   this.rematchRequested = false;
                   this.rematchFromOpponent = false;
                   this.overlayDismissed = false;
@@ -299,21 +254,18 @@ Vue.component("reversi-view", {
                   this.$emit("leave-room");
             },
       },
-      beforeDestroy() {
-            clearTimeout(this.flipTimer);
-      },
       template: `
             <div class="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
                   <!-- Header -->
-                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 to-cyan-500 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
                         <div class="deco-circle -right-6 -top-10 size-32"></div>
                         <div class="deco-circle -bottom-12 left-8 size-24"></div>
                         <div class="relative z-10 flex items-center gap-8 lg:gap-3">
-                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">⚫</span>
+                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">🔴</span>
                               <div class="lg:flex lg:w-full lg:place-content-between">
                                     <div class="min-w-0 flex-1">
-                                    <h1 class="text-3xl font-black leading-none">Reversi</h1>
-                                    <p class="mt-1 text-sm font-bold text-white/85">Flip the board to your color!</p>
+                                    <h1 class="text-3xl font-black leading-none">Connect 4</h1>
+                                    <p class="mt-1 text-sm font-bold text-white/85">Four in a row wins!</p>
                               </div>
                               <button @click="openHelp"
                                     class="btn-bubble shrink-0 rounded-2xl bg-white/25 px-3 py-2 text-sm font-black hover:bg-white/35">
@@ -328,13 +280,12 @@ Vue.component("reversi-view", {
                         <div :class="myCardClass"
                               class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
                               <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl shadow-lg">
-                                    {{ mySymbol === 'w' ? '⚪' : '⚫' }}
+                                    {{ mySymbol === 'yellow' ? '🟡' : '🔴' }}
                               </div>
                               <div class="min-w-0 flex-1 text-left">
                                     <div class="text-xs font-black uppercase opacity-75">You</div>
-                                    <div class="truncate text-base font-black">{{ mySymbol === 'w' ? 'White' : 'Black' }}</div>
+                                    <div class="truncate text-base font-black">{{ mySymbol === 'red' ? 'Red' : mySymbol === 'yellow' ? 'Yellow' : 'Waiting…' }}</div>
                               </div>
-                              <div class="shrink-0 text-2xl font-black">{{ myCountC }}</div>
                               <div v-if="phase === 'battle'" class="shrink-0 text-lg font-black"
                                     :class="myTurn ? 'animate-pulse' : 'opacity-40'">
                                     {{ myTurn ? '●' : '○' }}
@@ -343,15 +294,14 @@ Vue.component("reversi-view", {
                         <div :class="opponentCardClass"
                               class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
                               <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl shadow-lg">
-                                    {{ opponentSymbol === 'w' ? '⚪' : '⚫' }}
+                                    {{ opponentSymbol === 'yellow' ? '🟡' : '🔴' }}
                               </div>
                               <div class="min-w-0 flex-1 text-left">
                                     <div class="text-xs font-black uppercase opacity-75">Opponent</div>
                                     <div class="truncate text-base font-black">
-                                          {{ opponentName || (opponentSymbol === 'w' ? 'White' : 'Black') }}
+                                          {{ opponentName || (opponentSymbol === 'red' ? 'Red' : 'Yellow') }}
                                     </div>
                               </div>
-                              <div class="shrink-0 text-2xl font-black">{{ oppCountC }}</div>
                               <div v-if="phase === 'battle'" class="shrink-0 text-lg font-black"
                                     :class="!myTurn ? 'animate-pulse' : 'opacity-40'">
                                     {{ !myTurn ? '●' : '○' }}
@@ -362,21 +312,22 @@ Vue.component("reversi-view", {
                   <!-- Status pill -->
                   <div class="mx-auto w-fit rounded-full bg-white/80 px-6 py-2 text-center shadow-[0_4px_0_rgba(0,0,0,0.12)]">
                         <p class="text-sm font-black" :class="statusColor">{{ status || statusText }}</p>
-                        <p class="mt-0.5 text-xs font-bold text-slate-500">{{ totalCells }}/64 discs on board</p>
+                        <p class="mt-0.5 text-xs font-bold text-slate-500">{{ discsOnBoard }}/42 discs on board</p>
                   </div>
 
                   <!-- Board -->
-                  <div class="mx-auto w-full max-w-sm rounded-3xl bg-gradient-to-br from-emerald-700 to-emerald-900 p-2 shadow-[0_8px_0_rgba(0,0,0,0.18)]">
-                        <div class="grid grid-cols-8 gap-1 p-1">
-                              <div v-for="(cell, i) in board" :key="i" @click="play(i)"
-                                    :class="['aspect-square rounded-lg flex items-center justify-center bg-emerald-900/60', hoverClass(i)]">
-                                    <div v-if="cell !== ''"
-                                          class="w-3/4 h-3/4 rounded-full shadow-lg"
-                                          :class="[cell === 'b' ? 'bg-slate-900' : 'bg-white ring-2 ring-slate-300', animClass(i)]">
-                                    </div>
-                                    <div v-else-if="legalMoves.indexOf(i) !== -1"
-                                          class="size-3 rounded-full bg-yellow-300/90 animate-pulse">
-                                    </div>
+                  <div class="mx-auto w-full max-w-md rounded-3xl bg-gradient-to-b from-sky-700 to-sky-950 p-2 shadow-[0_8px_0_rgba(0,0,0,0.25)]">
+                        <div class="grid grid-cols-7 gap-1 px-1">
+                              <div v-for="c in cols" :key="'g' + c" @mouseenter="hoverCol = c"
+                                    @mouseleave="hoverCol = -1" @click="drop(c)" :class="['px-1 pt-1', colClass(c)]">
+                                    <div v-if="ghostVisible(c)" class="c4-pop" :class="ghostClass()"></div>
+                                    <div v-else class="aspect-square"></div>
+                              </div>
+                        </div>
+                        <div class="mt-1 grid grid-cols-7 gap-1 rounded-2xl bg-sky-900/50 p-1">
+                              <div v-for="(cell, i) in board" :key="i"
+                                    class="aspect-square rounded-full bg-sky-950/60 flex items-center justify-center p-[6%]">
+                                    <div v-if="cell !== null" :class="discClass(cell, i)"></div>
                               </div>
                         </div>
                   </div>
@@ -420,15 +371,15 @@ Vue.component("reversi-view", {
                               <div class="text-3xl md:text-4xl font-black">
                                     {{ result === 'won' ? 'You Win!' : result === 'lost' ? 'You Lose' : 'Draw' }}
                               </div>
-                              <div class="mt-2 text-sm font-bold text-white/85">
-                                    You {{ myCount }} — {{ opponentName || "Opponent" }} {{ oppCount }}
-                              </div>
                               <div class="mt-5 flex justify-center gap-3">
                                     <button @click="requestRematch" :disabled="rematchRequested"
                                           class="btn-bubble rounded-2xl bg-white/25 px-4 py-2 text-sm font-black">
                                           {{ rematchRequested ? "Waiting..." : "↻ Play again" }}
                                     </button>
                               </div>
+                              <p class="mt-2 text-xs font-bold text-white/70">
+                                    Both players click Play again to start a new game
+                              </p>
                         </div>
                   </div>
             </div>

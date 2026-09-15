@@ -56,6 +56,7 @@ var app = new Vue({
                         this.goLobby();
                         return;
                   }
+                  closeHowTo();
                   socket.emit("leave-game");
                   if (this.$refs.chat) this.$refs.chat.close();
                   this.view = "room";
@@ -64,12 +65,14 @@ var app = new Vue({
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
                   if (this.$refs.reversi) this.$refs.reversi.resetView();
                   if (this.$refs.rps) this.$refs.rps.resetView();
+                  if (this.$refs.connect4) this.$refs.connect4.resetView();
             },
             leaveRoom() {
                   socket.emit("leave-room");
                   this.goLobby();
             },
             goLobby() {
+                  closeHowTo();
                   socket.emit("leave-game");
                   if (this.$refs.chat) this.$refs.chat.close();
                   this.view = "lobby";
@@ -78,6 +81,7 @@ var app = new Vue({
                   if (this.$refs.pizza) this.$refs.pizza.clearTimer();
                   if (this.$refs.reversi) this.$refs.reversi.resetView();
                   if (this.$refs.rps) this.$refs.rps.resetView();
+                  if (this.$refs.connect4) this.$refs.connect4.resetView();
                   if (this.$refs.spectator) this.$refs.spectator.reset();
                   if (this.$refs.room) this.$refs.room.reset();
             },
@@ -195,7 +199,7 @@ function connectSocket() {
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("authUsername", data.username || "");
             const saved = sessionStorage.getItem("view");
-            app.view = ["tictactoe", "pizza", "reversi", "rps", "spectator", "room"].includes(saved)
+            app.view = ["tictactoe", "pizza", "reversi", "rps", "connect4", "spectator", "room"].includes(saved)
                   ? saved
                   : "lobby";
             if (app.$refs.auth) app.$refs.auth.reset();
@@ -251,6 +255,10 @@ function connectSocket() {
 
       socket.on("spectate-rps", (data) => {
             if (app.$refs.spectator) app.$refs.spectator.handleRps(data);
+      });
+
+      socket.on("spectate-connect4", (data) => {
+            if (app.$refs.spectator) app.$refs.spectator.handleConnect4(data);
       });
 
       socket.on("spectate-reset", () => {
@@ -411,6 +419,31 @@ function connectSocket() {
             if (app.$refs.rps) app.$refs.rps.syncState(data);
       });
 
+      // -------- Connect 4 game socket handlers --------
+      socket.on("connect4-start", (data) => {
+            if (app.view === "lobby" || app.view === "room") {
+                  app.view = "connect4";
+                  sessionStorage.setItem("view", "connect4");
+            }
+            if (app.$refs.connect4) app.$refs.connect4.start(data);
+      });
+
+      socket.on("connect4-state", (data) => {
+            if (app.$refs.connect4) app.$refs.connect4.applyState(data);
+      });
+
+      socket.on("connect4-game-over", (data) => {
+            if (app.$refs.connect4) app.$refs.connect4.gameOver(data);
+      });
+
+      socket.on("connect4-rematch-request", () => {
+            if (app.$refs.connect4) app.$refs.connect4.rematchRequest();
+      });
+
+      socket.on("connect4-info", (msg) => {
+            if (app.$refs.connect4) app.$refs.connect4.info(msg);
+      });
+
       // -------- Lobby / connection helpers --------
       socket.on("player2", (data) => {
             app.opponent = data.name;
@@ -429,14 +462,16 @@ function connectSocket() {
 
       socket.on("p2-left", (name) => {
             serverMessageTone.play();
+            closeHowTo();
             app.opponent = "";
             if (app.$refs.chat) app.$refs.chat.resetOpponent();
             if (app.$refs.chat) app.$refs.chat.clearHighlights();
             if (app.$refs.tt) app.$refs.tt.resetView();
             if (app.$refs.reversi) app.$refs.reversi.resetView();
             if (app.$refs.rps) app.$refs.rps.resetView();
+            if (app.$refs.connect4) app.$refs.connect4.resetView();
             showToast(name + " left", "error");
-            if (app.view === "tictactoe" || app.view === "pizza" || app.view === "reversi" || app.view === "rps") {
+            if (app.view === "tictactoe" || app.view === "pizza" || app.view === "reversi" || app.view === "rps" || app.view === "connect4") {
                   app.view = "room";
                   sessionStorage.setItem("view", "room");
             }

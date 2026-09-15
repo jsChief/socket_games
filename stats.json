@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 30,
+  "gamesPlayed": 37,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -107,8 +107,8 @@
       "symbol": "o"
     },
     "ff62319f-1a1d-449f-ac8d-bd3727b42b48": {
-      "wins": 9,
-      "losses": 6,
+      "wins": 10,
+      "losses": 8,
       "draws": 2,
       "name": "James O",
       "symbol": "x"
@@ -246,10 +246,82 @@
       "name": "AI Bot"
     },
     "26d1e6e5-5fa1-4f92-8b86-bf1642879dc5": {
+      "wins": 4,
+      "losses": 3,
+      "draws": 0,
+      "name": "wp360"
+    },
+    "ai-bot-RDTC": {
       "wins": 0,
       "losses": 0,
       "draws": 0,
-      "name": "wp360"
+      "name": "AI Bot"
+    },
+    "ai-bot-KPSP": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-B7B4": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-DNEJ": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-ND4W": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-P8Q7": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-SUK2": {
+      "wins": 2,
+      "losses": 1,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "probe-1789493499919": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "ProbeUser"
+    },
+    "probe-1789493538691": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "ProbeUser"
+    },
+    "ai-bot-Y2EH": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-MAA7": {
+      "wins": 0,
+      "losses": 1,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-YN2J": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
     }
   }
 }

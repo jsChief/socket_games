@@ -64,22 +64,22 @@ Vue.component("pizza-view", {
             },
             myCardClass() {
                   if (this.phase !== "battle")
-                        return "bg-white/60 text-slate-900";
+                        return "bg-white/60 text-slate-800";
                   if (this.myTurn)
-                        return "bg-green-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
-                  return "bg-white/60 text-slate-900";
+                        return "bg-gradient-to-br from-green-400 to-emerald-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
+                  return "bg-white/60 text-slate-800";
             },
             opponentCardClass() {
                   if (this.phase !== "battle")
-                        return "bg-white/60 text-slate-900";
+                        return "bg-white/60 text-slate-800";
                   if (!this.myTurn && this.opponentName)
-                        return "bg-orange-600 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
-                  return "bg-white/60 text-slate-900";
+                        return "bg-gradient-to-br from-orange-400 to-rose-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse";
+                  return "bg-white/60 text-slate-800";
             },
             resultBannerClass() {
                   return this.result === "won"
-                        ? "bg-gradient-to-br from-green-500 to-emerald-700"
-                        : "bg-gradient-to-br from-red-500 to-rose-700";
+                        ? "bg-gradient-to-br from-green-400 to-emerald-600"
+                        : "bg-gradient-to-br from-rose-400 to-red-600";
             },
       },
       methods: {
@@ -286,110 +286,182 @@ Vue.component("pizza-view", {
                   this.status = "Waiting for opponent to rematch...";
                   socket.emit("pizza-rematch");
             },
+            openHelp() {
+                  openHowTo({
+                        icon: "🍕",
+                        title: "Find My Pizza",
+                        tagline: "Hide 5 slices, then hunt your opponent's!",
+                        accent: "from-amber-400 to-red-500",
+                        steps: [
+                              {
+                                    icon: "🏠",
+                                    title: "Set your slices",
+                                    text: "Tap 5 cells on your board to hide your pizza slices, then lock them in. Your opponent never sees them!",
+                              },
+                              {
+                                    icon: "🔦",
+                                    title: "Hunt",
+                                    text: "Take turns guessing a cell on the opponent's board to try to find their hidden slices.",
+                              },
+                              {
+                                    icon: "🚀",
+                                    title: "Race to 5",
+                                    text: "Whoever finds all 5 of the opponent's slices first wins the game.",
+                              },
+                              {
+                                    icon: "↻",
+                                    title: "Rematch",
+                                    text: "After the game, both players can hit Play again to start a fresh round.",
+                              },
+                        ],
+                  });
+            },
+            leaveGame() {
+                  this.$emit("leave-game");
+            },
             leaveRoom() {
                   this.$emit("leave-room");
             },
       },
       template: `
-            <div>
-                  <p class="text-3xl p-4 rounded-2xl w-full text-center bg-orange-500/80 text-white font-bold shadow">
-                        Find My Pizza 🍕
-                  </p>
+            <div class="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
+                  <!-- Header -->
+                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-400 to-red-500 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="deco-circle -right-6 -top-10 size-32"></div>
+                        <div class="deco-circle -bottom-12 left-8 size-24"></div>
+                        <div class="relative z-10 flex items-center gap-8 lg:gap-3">
+                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">🍕</span>
+                              <div class="lg:flex lg:w-full lg:place-content-between">
+                                    <div class="min-w-0 flex-1">
+                                    <h1 class="text-3xl font-black leading-none">Find My Pizza</h1>
+                                    <p class="mt-1 text-sm font-bold text-white/85">Hide 5 slices, then hunt your opponent's!</p>
+                              </div>
+                              <button @click="openHelp"
+                                    class="btn-bubble shrink-0 rounded-2xl bg-white/25 px-3 py-2 text-sm font-black hover:bg-white/35">
+                                    ❓ How to play
+                              </button>
+                              </div>
+                        </div>
+                  </div>
 
-                  <div class="mt-2 grid grid-cols-2 gap-2">
+                  <!-- Player cards -->
+                  <div class="grid grid-cols-2 gap-3">
                         <div :class="myCardClass"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-2xl font-black">🍕</div>
-                              <div class="text-sm font-bold">You</div>
-                              <div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
-                                    {{ myTurn ? '● Your turn' : 'waiting' }}
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl shadow-lg">🍕</div>
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">You</div>
+                                    <div class="truncate text-base font-black">{{ mySlices }}/{{ slices }} slices</div>
+                              </div>
+                              <div v-if="phase === 'battle'" class="shrink-0 text-lg font-black"
+                                    :class="myTurn ? 'animate-pulse' : 'opacity-40'">
+                                    {{ myTurn ? '●' : '○' }}
                               </div>
                         </div>
                         <div :class="opponentCardClass"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-2xl font-black">🍕</div>
-                              <div class="text-sm font-bold truncate">{{ opponentName || "opponent" }}</div>
-                              <div v-if="phase === 'battle'" class="text-xs mt-1 font-bold">
-                                    {{ myTurn ? 'waiting' : '● their turn' }}
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl shadow-lg">🍕</div>
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">Opponent</div>
+                                    <div class="truncate text-base font-black">{{ opponentName || "Playing…" }}</div>
+                              </div>
+                              <div v-if="phase === 'battle'" class="shrink-0 text-lg font-black"
+                                    :class="!myTurn ? 'animate-pulse' : 'opacity-40'">
+                                    {{ !myTurn ? '●' : '○' }}
                               </div>
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl">
-                        <p class="text-center text-sm font-bold" :class="statusClass">{{ pizzaStatus }}</p>
-                        <p v-if="phase === 'placement'" class="text-center text-lg text-orange-600">
-                              Time left: {{ timer }}s
-                        </p>
+                  <!-- Status pill -->
+                  <div class="mx-auto w-fit rounded-full bg-white/80 px-6 py-2 text-center shadow-[0_4px_0_rgba(0,0,0,0.12)]">
+                        <p class="text-sm font-black" :class="statusClass">{{ pizzaStatus }}</p>
+                        <p v-if="phase === 'placement'" class="mt-0.5 text-xs font-bold text-orange-600">⏱ Time left: {{ timer }}s</p>
+                        <p v-else-if="phase === 'battle'" class="mt-0.5 text-xs font-bold text-slate-500">Find all {{ slices }} slices to win</p>
                   </div>
 
-                  <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div :style="{ order: phase === 'battle' ? 2 : 1 }">
-                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1 md:w-[30vw]">
-                                    My board ({{ mySlices }}/{{ slices }})
-                              </p>
-                              <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
-                                    <div v-for="(cell, i) in myBoard" :key="'m' + i" @click="placeCell(i)"
-                                          class="aspect-square rounded-lg flex items-center justify-center text-xl transition-all"
-                                          :class="myCellClass(i)">
-                                          {{ myCellIcon(i) }}
+                  <!-- Boards -->
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div :style="{ order: phase === 'battle' ? 2 : 1 }" class="flex flex-col items-center">
+                              <div class="w-full rounded-3xl bg-gradient-to-br from-rose-500 to-orange-500 p-2 shadow-[0_6px_0_rgba(0,0,0,0.16)] md:w-[72%]">
+                                    <p class="mb-2 text-center text-sm font-black text-white">
+                                          <span class="rounded-full bg-black/15 px-3 py-0.5">My board ({{ mySlices }}/{{ slices }})</span>
+                                    </p>
+                                    <div class="grid grid-cols-5 gap-1.5 rounded-2xl bg-white/20 p-1.5">
+                                          <div v-for="(cell, i) in myBoard" :key="'m' + i" @click="placeCell(i)"
+                                                class="aspect-square flex items-center justify-center rounded-lg text-xl transition-all"
+                                                :class="myCellClass(i)">
+                                                {{ myCellIcon(i) }}
+                                          </div>
+                                    </div>
+                                    <button v-if="phase === 'placement' && !submitted" @click="lockPlacement"
+                                          class="btn-bubble w-full mt-2 rounded-2xl bg-white/25 py-2 text-sm font-black"
+                                          :class="mySlices === slices ? '' : 'opacity-60'">
+                                          🍕 Lock in placement
+                                    </button>
+                              </div>
+                        </div>
+                        <div :style="{ order: phase === 'battle' ? 1 : 2 }" class="flex flex-col items-center">
+                              <div class="w-full rounded-3xl bg-gradient-to-br from-sky-500 to-blue-600 p-2 shadow-[0_6px_0_rgba(0,0,0,0.16)] md:w-[72%]">
+                                    <p class="mb-2 text-center text-sm font-black text-white">
+                                          <span class="rounded-full bg-black/15 px-3 py-0.5 truncate inline-block max-w-full">
+                                                {{ opponentName || "Opponent" }}'s board
+                                          </span>
+                                    </p>
+                                    <div class="grid grid-cols-5 gap-1.5 rounded-2xl bg-white/20 p-1.5">
+                                          <div v-for="(cell, i) in oppGuesses" :key="'o' + i" @click="attackCell(i)"
+                                                class="aspect-square flex items-center justify-center rounded-lg text-xl"
+                                                :class="oppCellClass(i)">
+                                                {{ oppCellIcon(i) }}
+                                          </div>
                                     </div>
                               </div>
-                              <button v-if="phase === 'placement' && !submitted" @click="lockPlacement"
-                                    class="mt-2 w-full rounded-2xl py-2 bg-orange-600 text-white text-sm"
-                                    :class="mySlices === slices ? '' : 'opacity-50'">
-                                    Lock in placement
-                              </button>
-                        </div>
-                        <div :style="{ order: phase === 'battle' ? 1 : 2 }">
-                              <p class="text-center text-sm mb-1 bg-white/50 rounded-xl py-1 md:w-[30vw]">
-                                    {{ opponentName || "Opponent" }}'s board
-                              </p>
-                              <div class="grid grid-cols-5 gap-1 p-1 bg-neutral-500/70 rounded-xl w-[70vw] md:w-[30vw]">
-                                    <div v-for="(cell, i) in oppGuesses" :key="'o' + i" @click="attackCell(i)"
-                                          class="aspect-square rounded-lg flex items-center justify-center text-xl"
-                                          :class="oppCellClass(i)">
-                                          {{ oppCellIcon(i) }}
-                                    </div>
-                              </div>
                         </div>
                   </div>
 
-                  <div class="mt-2 flex gap-2 justify-center">
+                  <!-- Action buttons -->
+                  <div class="flex justify-center gap-3 pt-1">
                         <button v-if="phase === 'over'" @click="requestRematch" :disabled="rematchRequested"
-                              class="rounded-2xl px-4 py-1.5 bg-green-600 text-white text-sm font-bold shadow-xl"
-                              :class="rematchRequested ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95 transition-all'">
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-5 py-2.5 text-sm font-black text-white">
                               {{ rematchRequested ? "⏳ Waiting for opponent..." : "↻ Play again" }}
                         </button>
+                        <button @click="leaveGame"
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 px-5 py-2.5 text-sm font-black text-white">
+                              🏠 Leave game
+                        </button>
                         <button @click="leaveRoom"
-                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 px-5 py-2.5 text-sm font-black text-white">
                               Leave room
                         </button>
                   </div>
 
+                  <!-- Opponent rematch pill -->
                   <div v-if="rematchFromOpponent && phase === 'over'"
                         class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60]">
-                        <div class="ttt-banner rounded-2xl px-5 py-3 text-center shadow-2xl bg-white/95 text-slate-900">
+                        <div class="howto-pop rounded-2xl bg-white/95 px-5 py-3 text-center text-slate-900 shadow-2xl">
                               <div class="text-sm font-black">{{ opponentName || "Opponent" }} wants a rematch</div>
                               <button @click="requestRematch"
-                                    class="mt-2 rounded-2xl bg-green-600 text-white text-sm font-bold px-4 py-1.5 shadow-xl">
+                                    class="btn-bubble mt-2 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-4 py-1.5 text-sm font-black text-white">
                                     Play again
                               </button>
                         </div>
                   </div>
 
+                  <!-- Result overlay -->
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
-                        <div class="pizza-banner rounded-3xl px-8 py-6 text-center shadow-2xl text-white w-80 max-w-full mx-4"
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">{{ result === 'won' ? '🎉' : '😢' }}</div>
                               <div class="text-3xl md:text-4xl font-black">{{ result === 'won' ? 'You Win!' : 'You Lose' }}</div>
-                              <div class="mt-2 text-white/80 text-sm">
-                                    {{ result === 'won' ? (opponentName || "Opponent") + " still has slices left" : (opponentName || "Opponent") + " found all your slices" }}
+                              <div class="mt-2 text-sm font-bold text-white/85">
+                                    {{ result === 'won' ? (opponentName || "Opponent") + " still has slices hidden" : (opponentName || "Opponent") + " found all your slices" }}
                               </div>
-                              <button @click="requestRematch" :disabled="rematchRequested"
-                                    class="mt-4 rounded-full bg-white/20 hover:bg-white/30 px-4 py-1.5 text-sm font-bold transition-colors">
-                                    {{ rematchRequested ? "Waiting for opponent..." : "↻ Play again" }}
-                              </button>
+                              <div class="mt-5 flex justify-center gap-3">
+                                    <button @click="requestRematch" :disabled="rematchRequested"
+                                          class="btn-bubble rounded-2xl bg-white/25 px-4 py-2 text-sm font-black">
+                                          {{ rematchRequested ? "Waiting..." : "↻ Play again" }}
+                                    </button>
+                              </div>
                         </div>
                   </div>
             </div>

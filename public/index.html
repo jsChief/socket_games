@@ -199,10 +199,30 @@
       .rps-pop {
         animation: rps-pop 0.35s ease-out both;
       }
+
+      /* ---- Connect 4 game animations ---- */
+      @keyframes c4-pop {
+        0% {
+          transform: translateY(-18px) scale(0.3);
+          opacity: 0.4;
+        }
+        60% {
+          transform: translateY(3px) scale(1.1);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+        }
+      }
+      .c4-pop {
+        animation: c4-pop 0.3s ease-out both;
+      }
     </style>
     <script src="src/TW4.js"></script>
     <link rel="stylesheet" href="all.css" />
     <link rel="stylesheet" href="themes.css" />
+    <link rel="stylesheet" href="game-style.css" />
     <script src="src/socket.io.min.js"></script>
     <script src="src/vue.js"></script>
     <script>
@@ -218,7 +238,7 @@
     </script>
   </head>
 
-  <body class="w-screen h-screen text-ss">
+  <body class="w-screen h-screen bg-rose-500/40 text-ss">
     <div id="app" class="h-full w-full">
       <!-- AUTH VIEW -->
       <auth-view
@@ -257,6 +277,7 @@
         ref="tt"
         v-show="view === 'tictactoe'"
         @leave-room="leaveRoom"
+        @leave-game="backToRoom"
       ></tictactoe-view>
 
       <!-- PIZZA GAME VIEW -->
@@ -264,6 +285,7 @@
         ref="pizza"
         v-show="view === 'pizza'"
         @leave-room="leaveRoom"
+        @leave-game="backToRoom"
       ></pizza-view>
 
       <!-- REVERSI GAME VIEW -->
@@ -271,6 +293,7 @@
         ref="reversi"
         v-show="view === 'reversi'"
         @leave-room="leaveRoom"
+        @leave-game="backToRoom"
       ></reversi-view>
 
       <!-- ROCK PAPER SCISSORS GAME VIEW -->
@@ -278,7 +301,16 @@
         ref="rps"
         v-show="view === 'rps'"
         @leave-room="leaveRoom"
+        @leave-game="backToRoom"
       ></rps-view>
+
+      <!-- CONNECT 4 GAME VIEW -->
+      <connect4-view
+        ref="connect4"
+        v-show="view === 'connect4'"
+        @leave-room="leaveRoom"
+        @leave-game="backToRoom"
+      ></connect4-view>
 
       <!-- SPECTATOR VIEW -->
       <spectator-view
@@ -302,6 +334,9 @@
 
       <!-- CHAT OVERLAY VIEW -->
       <chat-view ref="chat" @new-message="hasNewMessage = true"></chat-view>
+
+      <!-- GLOBAL "HOW TO PLAY" DIALOG (opened by any game view) -->
+      <howto-dialog></howto-dialog>
 
       <audio id="messageTone" src="assets/notify.mp3" preload="auto"></audio>
       <audio
@@ -329,8 +364,10 @@
     <script src="components/pizza-view.js"></script>
     <script src="components/reversi-view.js"></script>
     <script src="components/rps-view.js"></script>
+    <script src="components/connect4-view.js"></script>
     <script src="components/spectator-view.js"></script>
     <script src="components/chat-view.js"></script>
+    <script src="components/howto-dialog.js"></script>
 
     <script src="main.js"></script>
   </body>

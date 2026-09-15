@@ -73,7 +73,28 @@ function waitEvent(s, event, predicate, timeout) {
         return;
       }
       if (Date.now() - start > limit) {
-        reject(new Error(`[${s._label}] timeout waiting for ${event}`));
+        const dump = s._inbox
+          .map((m) => {
+            const d = m.data;
+            let preview = "";
+            if (d && typeof d === "object") {
+              preview = Object.keys(d)
+                .slice(0, 6)
+                .map((k) => k + "=" + JSON.stringify(d[k]).slice(0, 40))
+                .join(" ");
+            }
+            return m.event + (preview ? " {" + preview + "}" : "");
+          })
+          .join("\n      ");
+        reject(
+          new Error(
+            `[${s._label}] timeout waiting for ${event} (have ` +
+              s._inbox.length +
+              " queued:\n      " +
+              (dump || "(empty inbox)") +
+              ")",
+          ),
+        );
         return;
       }
       setTimeout(poll, 20);
@@ -461,6 +482,133 @@ async function run() {
   frank.emit("leave-room");
   await waitEvent(frank, "room-left");
 
+  // --- Connect 4 starts independently (Eve + Frank, 5th room) ---
+  eve.emit("create-room");
+  const createdC4 = await waitEvent(eve, "room-created");
+  const codeC4 = createdC4.code;
+  assert(
+    codeC4 !== codeA &&
+      codeC4 !== codeB &&
+      codeC4 !== codeC &&
+      codeC4 !== codeRps,
+    "Connect 4 room has a different code",
+  );
+
+  frank.emit("join-room", { code: codeC4 });
+  await waitEvent(frank, "room-joined");
+  await waitEvent(frank, "room-update", (d) => d.players.length === 2);
+
+  eve.emit("select-game", { game: "connect4" });
+  frank.emit("select-game", { game: "connect4" });
+  const [eveC4, frankC4] = await Promise.all([
+    waitEvent(eve, "connect4-start"),
+    waitEvent(frank, "connect4-start"),
+  ]);
+  assert(
+    eveC4.symbol !== frankC4.symbol,
+    "connect4 players get different colors",
+  );
+  assert(
+    ["red", "yellow"].includes(eveC4.symbol) &&
+      ["red", "yellow"].includes(frankC4.symbol),
+    "connect4 colors are red/yellow",
+  );
+  console.log("  Connect 4 started in room " + codeC4 + ".");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "connect4-start") &&
+      !bob._inbox.some((m) => m.event === "connect4-start") &&
+      !carol._inbox.some((m) => m.event === "connect4-start") &&
+      !dave._inbox.some((m) => m.event === "connect4-start"),
+    "connect4-start does not leak into other rooms",
+  );
+
+  // Red wins by stacking column 1 vertically while yellow fills a far column.
+  const redSide = eveC4.symbol === "red" ? eve : frank;
+  const yellowSide = redSide === eve ? frank : eve;
+  const redColor = redSide === eve ? eveC4.symbol : frankC4.symbol;
+  const yellowColor = redColor === "red" ? "yellow" : "red";
+  const discCount = (board, col, color) => {
+    let n = 0;
+    for (let r = 0; r < 6; r++) if (board[r * 7 + col] === color) n++;
+    return n;
+  };
+  for (let i = 0; i < 4; i++) {
+    redSide.emit("connect4-drop", { col: 1 });
+    if (i === 3) break; // 4th red disc wins the game
+    await waitEvent(
+      redSide,
+      "connect4-state",
+      (d) => Array.isArray(d.board) && discCount(d.board, 1, redColor) === i + 1,
+    );
+    yellowSide.emit("connect4-drop", { col: 6 });
+    await waitEvent(
+      yellowSide,
+      "connect4-state",
+      (d) => Array.isArray(d.board) && discCount(d.board, 6, yellowColor) === i + 1,
+    );
+  }
+  const [redOver, yellowOver] = await Promise.all([
+    waitEvent(redSide, "connect4-game-over"),
+    waitEvent(yellowSide, "connect4-game-over"),
+  ]);
+  assert(
+    redOver.won === true && redOver.draw === false,
+    "red wins the Connect 4 game",
+  );
+  assert(
+    Array.isArray(redOver.winLine) && redOver.winLine.length === 4,
+    "winning line has 4 cells",
+  );
+  assert(
+    yellowOver.won === false && yellowOver.draw === false,
+    "yellow loses the Connect 4 game",
+  );
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "connect4-game-over") &&
+      !carol._inbox.some((m) => m.event === "connect4-game-over"),
+    "connect4-game-over does not leak across rooms",
+  );
+
+  // Rematch: vote from both sides -> fresh game with an empty board.
+  redSide.emit("connect4-rematch");
+  await waitEvent(yellowSide, "connect4-rematch-request");
+  yellowSide.emit("connect4-rematch");
+  const [redStart2, yellowStart2] = await Promise.all([
+    waitEvent(redSide, "connect4-start"),
+    waitEvent(yellowSide, "connect4-start"),
+  ]);
+  assert(true, "both players can rematch and start a fresh Connect 4 game");
+  const firstState = await waitEvent(
+    redSide,
+    "connect4-state",
+    (d) =>
+      Array.isArray(d.board) &&
+      d.board.length === 42 &&
+      d.board.every((x) => x === null),
+  );
+  assert(
+    firstState.board.every((x) => x === null) &&
+      redStart2.symbol === redColor &&
+      yellowStart2.symbol === yellowColor,
+    "rematched Connect 4 board starts empty",
+  );
+  assert(
+    redStart2.symbol === redOver.mySymbol &&
+      yellowStart2.symbol === yellowOver.mySymbol,
+    "rematch keeps each player's color",
+  );
+  console.log("  Connect 4 rematch started.");
+
+  // Leave room 5 cleanup (Eve + Frank).
+  eve.emit("leave-game");
+  eve.emit("leave-room");
+  await waitEvent(frank, "p2-left");
+  await waitEvent(eve, "room-left");
+  frank.emit("leave-room");
+  await waitEvent(frank, "room-left");
+
   // --- AI bot: added as a second player and plays tic-tac-toe + reversi ---
   grace.emit("create-room");
   const created4 = await waitEvent(grace, "room-created");
@@ -588,6 +736,29 @@ async function run() {
   await waitEvent(grace, "rps-start");
   assert(true, "AI bot auto-rematches Rock Paper Scissors");
   console.log("  AI bot finished an RPS match and auto-rematched.");
+
+  // --- Connect 4 vs the AI bot ---
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "connect4" });
+  const graceC4 = await waitEvent(grace, "connect4-start");
+  assert(
+    ["red", "yellow"].includes(graceC4.symbol),
+    "Connect 4 vs AI hands out a red or yellow color",
+  );
+  if (graceC4.symbol === "red") {
+    grace.emit("connect4-drop", { col: 3 });
+  }
+  const botC4Symbol = graceC4.symbol === "red" ? "yellow" : "red";
+  await waitEvent(
+    grace,
+    "connect4-state",
+    (d) =>
+      Array.isArray(d.board) &&
+      d.board.some((x) => x === botC4Symbol),
+  );
+  assert(true, "AI bot plays a Connect 4 move");
+  console.log("  AI bot played a Connect 4 disc.");
 
   // --- Leave the AI room -> the bot cleans itself up and the room closes ---
   grace.emit("leave-room");

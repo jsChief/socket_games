@@ -118,7 +118,7 @@ html[data-theme="ocean"] {
 
 html[data-mode="dark"] body {
   background-image: url("./images/bg-dark.svg");
-  background-color: #0f1226;
+  /*background-color: #0f1226;*/
   color: #e2e8f0;
 }
 
