@@ -8,13 +8,37 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
     *   **Turn Indicator:** Clearly indicate whose turn it is (e.g., highlighting the current player's name/symbol, distinct border).
     *   **Move Animations:** Add subtle animations when 'X' or 'O' marks are placed.
     *   **Win/Draw Animation:** Implement more celebratory animations for wins and clear visual cues for draws.
+
+> **Status:** DONE. The Tic-Tac-Toe screen now shows a turn indicator as two
+> player cards (you + opponent) with the active player highlighted (ring +
+> pulse + color), a pop animation on every placed mark, a glowing highlight on
+> the winning line, and a full-screen animated win/lose/draw banner. Game info
+> (turn, result, invalid moves) is shown on the game screen instead of being
+> posted into the chat feed (see `tictactoe-view.js` + `main.js`).
+>
+> The **Find My Pizza** screen got the same treatment (`pizza-view.js`): player
+> cards with a highlighted turn indicator during battle, pop/hit/miss cell
+> animations, a full-screen animated win/lose banner, and a rematch banner when
+> the opponent asks to play again.
 *   **Sound Effects:**
     *   **On Move:** A distinct sound when a mark is placed.
     *   **Win/Loss/Draw:** Different sounds for game outcomes.
     *   **New Player Join:** A subtle sound when an opponent connects.
+
+> **Status:** DONE. A sound plays on every placed Tic-Tac-Toe mark (own move +
+> opponent move), wins/losses/draws each use their own sound, and a subtle join
+> sound plays when an opponent connects. New dedicated files (`move.mp3`,
+> `join.mp3`, `draw_notify.mp3`) are wired up in `index.html` + `main.js` and
+> automatically fall back to existing sounds until you drop those files into
+> `public/assets/`.
 *   **Improved Chat Features:**
     *   **Emojis:** Allow players to send emojis in the chat.
     *   **Quick Chat:** Implement a set of pre-defined, one-click messages (e.g., "Good game!", "Your turn!").
+
+> **Status:** DONE. The chat has a one-click emoji reaction bar (👍❤️😂😮😢🔥👏🎉)
+> and a "💬 Quick Chat" toggle with preset one-click messages ("Your turn!",
+> "Good game!", "Rematch?", ...) that are sent like normal chat messages — see
+> `chat-view.js`.
 
 ## 2. Game Mechanics & Flow
 
@@ -25,6 +49,14 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
     *   Queue new players if a game is in progress.
 *   **Timer Per Turn:** Add a countdown timer for each player's move. If time runs out, the player could forfeit or their turn could be skipped.
 *   **Game Reset Confirmation:** Ensure both players confirm before the game resets, especially during an active game.
+
+> **Status (Rematch + Reset Confirmation):** DONE. The Tic-Tac-Toe screen has a
+> "↻ New Game" button (no more `/reset` chat command). It sends a reset request to
+> the opponent, who sees an Accept / Decline dialog on the game screen. Both
+> accepting players get a fresh board. Requests/accepts are scoped per-room and
+> are cleared automatically if a player leaves (see `tictactoe-view.js`,
+> `main.js` and the `request-game-reset` / `accept-game-reset` /
+> `decline-game-reset` handlers in `server.js`).
 
 ## 3. Persistence & User Management
 
@@ -41,3 +73,154 @@ This document outlines potential features to enhance the Tic-Tac-Toe game.
 ## 5. Customization
 
 *   **Theme Selection:** Allow players to choose different visual themes for the game board and UI.
+
+> **Status:** DONE. There are now 4 switchable themes — **Sunset** (default),
+> **Midnight**, **Forest** and **Ocean** — chosen from the lobby's "🎨 Theme"
+> card (swatch buttons + live name). The choice is saved to
+> `localStorage["gameTheme"]` and applied before first paint via a tiny inline
+> script in `index.html`, so there's no flash of the wrong theme.
+>
+> How it works: the app styles itself with Tailwind v4 browser utilities
+> (`src/TW4.js`), which compile color classes (`bg-slate-900`, `bg-orange-600`,
+> `text-white`, …) against the `--color-*` custom properties they emit on
+> `:root`. Each theme in `public/themes.css` re-defines those tokens under
+> `html[data-theme="…"]`, so the boards, panels, marks and buttons recolor
+> everywhere with zero component markup changes. X/O marks and buttons follow
+> each theme's accent (violet/cyan for Midnight, amber/lime for Forest,
+> coral/blue for Ocean), boards shift to a theme-tinted slate, and the window
+> backdrop gets its own wash. Status colors (win/lose/warn) stay recognizable.
+>
+> **Dark mode:** a ☀️ Light / 🌙 Dark toggle sits under the swatches. Because a
+> token like `--color-white` is shared by light glass panels *and* by white
+> text/pieces that must stay white (buttons, reversi discs), dark mode can't be
+> a plain token swap. Instead `themes.css` remaps the specific Tailwind classes
+> that mean "light glass panel" (`bg-white/40…/95`) and "dark text on a panel"
+> (`text-slate-500…900`, `text-black`) to night equivalents, and darkens the
+> small light chips (orange/yellow/red/blue 100s) into tinted night chips. Boards,
+> colored buttons and game pieces are left untouched. Each palette theme gets its
+> own near-black backdrop (e.g. warm brown for Sunset, indigo-black for Midnight),
+> the default text color flips to light so inherited text still reads, and the
+> choice persists per device in `localStorage["gameMode"]` with the same no-flash
+> pre-render script.
+>
+> **SVG backgrounds:** the old `Textiles.png` photo was replaced with two
+> hand-drawn SVG table tops in `public/images/`: `bg-light.svg` (soft washes,
+> game-board tile texture, scattered X/O, dice, coins, pawns and sparkles) and
+> `bg-dark.svg` (nebula washes over a dotted star-grid, neon glowing pieces and a
+> vignette). They're layered under the per-theme wash color, so switching theme
+> or light/dark mode changes both the color and the texture.
+>
+> Future ideas: board skins per game, and custom accent-color picking.
+
+## 6. Game Rooms (implemented ✅)
+
+Currently the whole app is a single 2-player table: two players join, pick a game, and play. Game rooms would let several players be online at once while playing in separate, independent games.
+
+*   **Room creation & joining:**
+    *   A player creates a room → gets a short join code (e.g., 4-6 chars) and/or a URL like `#/room/ABCD`.
+    *   Friends join by entering the code or opening the link. Rooms are private by default.
+    *   Room list tab in the lobby (public rooms) + "create room" / "join with code" buttons.
+
+> **Status:** DONE. Players create a 4-char private room from the lobby and friends
+> join via the code (see `room-view` + lobby controls). A public room list / tab and
+> `#/room/CODE` share links are future enhancements.
+*   **Room lifecycle:**
+    *   Rooms exist server-side (in-memory `rooms` map); owner can close the room.
+    *   Empty rooms auto-expire after a timeout.
+    *   Server restart clears rooms (they're ephemeral).
+*   **Per-room game state:**
+    *   Each room gets its own `table`, `gameOn`, `currentPlayer`, `pizza` state, and 2 `players` — currently these are all global (single shared board).
+    *   All game socket events (`btn-pos`, `select-game`, `leave-game`, pizza events, reset, rematch) need to be scoped to the sender's room.
+*   **Refactor impact:**
+    *   Extract the current single-game logic into a `Room` object/class so each room has its own copy.
+    *   `players` array stays global (all connected users), but each room references its two seated players.
+    *   Chat is already global — decide if it should be room-scoped or stay global.
+*   **Seating & joining:**
+    *   Rooms are limited to 2 seated players (+ optional spectators later).
+    *   Host decides game (or both pick). Guest's room shows the same lobby/select flow, scoped to that room.
+    *   Reconnection: reconnect to your room via the token/`persistentUserId` — restore which room you were in.
+*   **Nice-to-haves (later):**
+    *   Spectators in a room (watching the live board).
+    *   Room settings (e.g., which games enabled, turn timer).
+    *   Invite links that auto-register/login the invited friend.
+
+* forgot password
+Admin-issued reset code (best for a friend group). Player clicks "forgot password" → server shows "ask an admin for a reset code" → you run a command that prints a short-lived one-time code → player enters code + new password in the dialog → server resets. The out-of-band channel is you telling them the code in person/WhatsApp.
+
+## 7. Reversi (Othello) ✅
+
+A full two-player Reversi game, selectable from the room game cards.
+
+> **Status:** DONE. Game logic lives in `lib/reversi.js` (board is a 64-cell
+> array, symbols `b`/`w`, black moves first, `flipsForMove` flank validation,
+> pass when a player has no legal moves, win/lose/draw + stats). The server wires
+> it like the other games (`reversi-start` / `reversi-state` /
+> `reversi-game-over` / `reversi-move` / `reversi-rematch` /
+> `reversi-rematch-request` / `reversi-info`), scoped per room with reconnect
+> resync. The `reversi-view` component shows player cards with a turn indicator,
+> a green board with legal-move dots, pop + flip animations, a win/lose/draw
+> overlay with counts, and a rematch banner. E2E coverage: reversi starts in its
+> own room, an opening move flips the expected cell and passes the turn, and
+> reversi events never leak across rooms.
+
+## 8. AI Bot (play against the computer) 🤖
+
+Practice any game solo by adding an AI as the second player in a room.
+
+> **Status:** DONE. From the room screen, a player can pick a difficulty and
+> click "Add AI opponent"; the server spawns a real `socket.io-client`
+> connection (`lib/bot.js`) that joins the room as "AI Bot" and mirrors whatever
+> game you pick, so games start instantly. It plays all four games over the
+> same socket protocol a human uses, at **Easy / Medium / Hard** difficulty
+> (`add-bot` payload, stored on the bot player and shown in the room UI):
+>
+> | Game          | Easy | Medium | Hard |
+> |---------------|------|--------|------|
+> | Tic-Tac-Toe   | random with ~60% of wins / ~45% of blocks | always takes an immediate win & block, else random | perfect minimax |
+> | Reversi       | random legal move | greedy (flanks + corners/edges) | 2-ply maximin with corner/edge eval |
+> | Find My Pizza | clustered slices, pure-random attacks | random slices, neighbor-hunts after a hit | spread-out slices, exhausts hit neighbors + spaced scanning |
+> | Rock Paper Scissors | uniform random throw | uniform random throw | counters the opponent's last throw 65% of the time |
+>
+> It auto-accepts resets and
+> rematches, reacts with a short delay so moves are visible, cleans itself up
+> when the human leaves, and can be removed via "Remove AI". Served only to its
+> own room (per-room `persistentUserId`, excluded from the online players list)
+> and covered by e2e tests for all four games (including that the chosen
+> difficulty is persisted on the bot player).
+
+## 9. Spectator Mode (watch a live room) 👁
+
+When both seats of a room are full, players who join by code watch the game live instead of getting a "room is full" error.
+
+> **Status:** DONE. Joining a full room now puts you in spectator mode. The
+> server keeps a `room.spectators` list (`lib/rooms.js`) and emits a separate
+> `spectate-<game>` event stream for watchers (`spectate-tictactoe`,
+> `spectate-reversi`, `spectate-pizza`), so spectators never receive private
+> player events (`set-turn`, `click-btn`, `player2`, ...). Each game module
+> exposes a `spectateTo(socket, room)` snapshot so joining mid-game instantly
+> shows the current board + whose turn it is. Pizza keeps the hidden slice
+> placements secret — only probes (hits/misses) are revealed, so you can't spoil
+> the outcome. The new `spectator-view` component shows both player cards with a
+> live turn highlight, the live board (winning Tic-Tac-Toe line included), and a
+> "Take a seat" button; when a seated player leaves, your seat fills the room.
+> Reconnecting spectators are restored to the spectator screen. Supported by e2e
+> coverage (join a full room → live board on join → moves broadcast live → no
+> private events leak to spectators / no spectate events leak to players →
+> taking a freed seat). A public game list (#4) is still a future enhancement.
+
+## 10. Rock Paper Scissors ✊
+
+Best-of-3 classic showdown, selectable from the room game cards.
+
+> **Status:** DONE. Game logic lives in `lib/rps.js` (per-room state with
+> simultaneous throws every round, first to 2 round-wins takes the match, draws
+> replay). The server wires it like the other games (`rps-start` /
+> `rps-round` / `rps-game-over` / `rps-pick` / `rps-rematch` /
+> `rps-rematch-request` / `rps-info` / `rps-state`), scoped per room with
+> reconnect resync (the opponent's pending throw stays hidden until the round
+> resolves). The `rps-view` component shows a live scoreboard, your hand vs a
+> hidden "?" opponent hand that reveals each round with a pop animation, and a
+> win/lose overlay with rematch. The AI bot throws for it (hard counters your
+> last throw). E2E coverage: RPS starts in its own room, rock beats scissors
+> with correct 2-0 match resolution for both players, rematch works, RPS events
+> never leak across rooms, and the bot throws a valid hand.

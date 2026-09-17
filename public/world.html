@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tile World — Phaser Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--bg, #1c2733);
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+    p.hint { margin: 0 0 6px; font-size: 13px; color: #94a3b8; }
+    #game-container {
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      background: #1c2733;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tile World</h1>
+  <p class="hint">Move the emoji with the arrow keys or WASD</p>
+  <div id="game-container"></div>
+
+  <script src="src/phaser.min.js"></script>
+  <script src="world.js"></script>
+</body>
+</html>

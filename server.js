@@ -3,6 +3,18 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
+const crypto = require("crypto");
+const { promisify } = require("util");
+const scrypt = promisify(crypto.scrypt);
+const randomBytes = promisify(crypto.randomBytes);
+
+const createRooms = require("./lib/rooms");
+const createTicTacToeGame = require("./lib/tictactoe");
+const createPizza = require("./lib/pizza");
+const createReversi = require("./lib/reversi");
+const createRps = require("./lib/rps");
+const createConnect4 = require("./lib/connect4");
+const createBot = require("./lib/bot");
 
 const app = express();
 // Create the unified HTTP server
@@ -13,76 +25,32 @@ const io = new Server(server, {
   cors: {
     origin: [
       "http://localhost:3000",
+      "http://192.168.43.219:3000",
       "http://192.168.0.139:3000",
+      "http://192.168.0.180:3000", //wp-360
       "https://fond-dory-suitable.ngrok-free.app",
     ],
     methods: ["GET", "POST"],
   },
 });
 
-// 1. Serve your Tic-Tac-Toe frontend files statically
+// 1. Serve the frontend files statically
 // (Point this to your web page build folder, e.g., 'public' or 'dist')
 app.use(express.static(path.join(__dirname, "public")));
 
-const playersFilePath = path.join(__dirname, "players.json");
-// `storedPlayers` holds persisted player records loaded from disk on start.
 // `players` holds the currently active (connected) players for this server run.
-var storedPlayers = [];
+// Each player refers into a room via `roomCode`. Seating happens explicitly,
+// not automatically on connect/auth.
 var players = [];
+
 const statsFilePath = path.join(__dirname, "stats.json");
 // Stats structure: { gamesPlayed: number, players: { [persistentUserId]: { wins, losses, draws, name, symbol } } }
 var stats = { gamesPlayed: 0, players: {} };
-var table = ["", "", "", "", "", "", "", "", ""];
-var virtualTable = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
-var validCombo = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-];
-var r, symbol;
-var gameOn = false;
-var currentPlayer = 0;
-var resetRequest = false;
-// Pizza game state ("Find My Pizza")
-// boards[i] = 20 booleans marking where player i hid slices
-// attacked[i] = 20 booleans marking cells on player i's board already probed
-// found[i] = slices the opponent has found ON player i's board (i.e. wins for 1-i)
-var pizza = {
-  active: false,
-  phase: "idle", // idle | placement | battle | over
-  boards: [Array(20).fill(false), Array(20).fill(false)],
-  attacked: [Array(20).fill(false), Array(20).fill(false)],
-  found: [0, 0],
-  turn: 0,
-  submitted: [false, false],
-  rematch: [false, false],
-  placementTimer: null,
-  placementStart: 0,
-};
-
-// Function to load persisted players from players.json into `storedPlayers`.
-const loadPlayers = () => {
-  try {
-    const dataBuffer = fs.readFileSync(playersFilePath);
-    const dataJSON = dataBuffer.toString();
-    storedPlayers = JSON.parse(dataJSON);
-    console.log("Persisted players loaded from file.");
-  } catch (e) {
-    if (e.code === "ENOENT") {
-      console.log(
-        "players.json not found, starting with empty persisted players array.",
-      );
-    } else {
-      console.error("Error loading players from file:", e);
-    }
-    storedPlayers = []; // Start with an empty array if file doesn't exist or is invalid
-  }
-};
+const accountsFilePath = path.join(__dirname, "accounts.json");
+// Simple username/password accounts for a small circle of friends.
+// accounts.accounts[usernameLower] = { username, salt, hash, persistentUserId }
+// accounts.tokens[token] = usernameLower  (auto-login "remember me" tokens)
+var accounts = { accounts: {}, tokens: {} };
 
 // Load persisted stats from stats.json into `stats`.
 const loadStats = () => {
@@ -109,17 +77,6 @@ const loadStats = () => {
   }
 };
 
-// Function to save persisted players (`storedPlayers`) to players.json
-const savePlayers = () => {
-  try {
-    const dataJSON = JSON.stringify(storedPlayers, null, 2); // Pretty print JSON
-    fs.writeFileSync(playersFilePath, dataJSON);
-    console.log("Persisted players saved to file.");
-  } catch (e) {
-    console.error("Error saving players to file:", e);
-  }
-};
-
 // Save stats to stats.json
 const saveStats = () => {
   try {
@@ -131,14 +88,429 @@ const saveStats = () => {
   }
 };
 
-// Load players data when the server starts
-loadPlayers();
+// Load accounts (and login tokens) from accounts.json into `accounts`.
+const loadAccounts = () => {
+  try {
+    const dataBuffer = fs.readFileSync(accountsFilePath);
+    const parsed = JSON.parse(dataBuffer.toString());
+    accounts = {
+      accounts:
+        parsed && typeof parsed.accounts === "object" && parsed.accounts !== null
+          ? parsed.accounts
+          : {},
+      tokens:
+        parsed && typeof parsed.tokens === "object" && parsed.tokens !== null
+          ? parsed.tokens
+          : {},
+    };
+    console.log("Accounts loaded from file.");
+  } catch (e) {
+    if (e.code === "ENOENT") {
+      console.log("accounts.json not found, starting with empty accounts.");
+    } else {
+      console.error("Error loading accounts from file:", e);
+    }
+    accounts = { accounts: {}, tokens: {} };
+  }
+};
+
+// Save accounts to accounts.json
+const saveAccounts = () => {
+  try {
+    const dataJSON = JSON.stringify(accounts, null, 2);
+    fs.writeFileSync(accountsFilePath, dataJSON);
+    console.log("Accounts saved to file.");
+  } catch (e) {
+    console.error("Error saving accounts to file:", e);
+  }
+};
+
+// Hash a password with a random salt using scrypt.
+async function hashPassword(password) {
+  const salt = (await randomBytes(16)).toString("hex");
+  const hash = (await scrypt(password, salt, 64)).toString("hex");
+  return { salt, hash };
+}
+
+// Verify a plaintext password against the stored salt + hash.
+async function verifyPassword(password, salt, hash) {
+  const candidate = (await scrypt(password, salt, 64)).toString("hex");
+  return candidate === hash;
+}
+
+// Generate a random login token.
+function generateToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+// Load data when the server starts (before the game modules capture `stats`)
 loadStats();
+loadAccounts();
+
+// Create shared modules: room lifecycle + the two games. Each game module
+// receives only the io helpers it needs, so the games stay decoupled.
+const {
+  rooms,
+  generateRoomCode,
+  getRoomForSocket,
+  roomIndexOf,
+  findFreeSeat,
+  toRoom,
+  toSpectators,
+  roomReady,
+  getRoomView,
+  scheduleRoomExpiry,
+} = createRooms({ io, players });
+const tictactoe = createTicTacToeGame({
+  io,
+  toRoom,
+  toSpectators,
+  roomReady,
+  roomIndexOf,
+  stats,
+  saveStats,
+});
+const pizza = createPizza({ io, toRoom, toSpectators, roomReady, roomIndexOf });
+const reversi = createReversi({
+  io,
+  toRoom,
+  toSpectators,
+  roomReady,
+  roomIndexOf,
+  stats,
+  saveStats,
+});
+const rps = createRps({ io, toRoom, toSpectators, roomReady, roomIndexOf });
+const connect4 = createConnect4({
+  io,
+  toRoom,
+  toSpectators,
+  roomReady,
+  roomIndexOf,
+  stats,
+  saveStats,
+});
+const bot = createBot({
+  players,
+  getPort: () => {
+    const addr = server.address();
+    return addr && addr.port ? addr.port : Number(process.env.PORT) || 3000;
+  },
+});
+
+// Create a fresh in-memory room. Rooms are ephemeral (lost on restart).
+function makeRoom(code, creatorId) {
+  return {
+    code,
+    creatorId,
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
+    players: [null, null], // seats 0 and 1; null = free
+    table: tictactoe.emptyTable(),
+    virtualTable: tictactoe.emptyVirtualTable(),
+    gameOn: false,
+    currentPlayer: 0,
+    resetRequest: false,
+    spectators: [], // watchers who joined after both seats were full
+    pizza: pizza.makeState(),
+    reversi: reversi.makeState(),
+    rps: rps.makeState(),
+    connect4: connect4.makeState(),
+  };
+}
+
+// Connect an authenticated/known player to the app. Auth does NOT seat the
+// player into a game — they land in the lobby and must create/join a room.
+function connectPlayer(socket, data) {
+  const { persistentUserId, name: clientName } = data; // Get name from client as well, it might be stored locally
+  if (!persistentUserId) return;
+  console.log(
+    `Initial connect from persistentUserId: ${persistentUserId}, clientName: ${clientName}`,
+  );
+
+  // Check if the player is already active in this server run
+  let activeIndex = players.findIndex(
+    (player) => player.persistentUserId === persistentUserId,
+  );
+
+  if (activeIndex !== -1) {
+    // Active player exists (reconnection in same run), update socket id and name
+    let existingPlayer = players[activeIndex];
+    existingPlayer.id = socket.id;
+    existingPlayer.online = true;
+    if (clientName && existingPlayer.name !== clientName) {
+      existingPlayer.name = clientName;
+    }
+
+    socket.emit("welcome-back", existingPlayer.name);
+
+    // Restore room membership if the player was seated somewhere.
+    const room = existingPlayer.roomCode ? rooms[existingPlayer.roomCode] : null;
+    if (room) {
+      const idx = roomIndexOf(room, socket.id);
+      if (idx === -1 && room.spectators.includes(existingPlayer)) {
+        // Reconnecting spectator: put them back on the spectator screen.
+        socket.emit("room-joined", {
+          code: room.code,
+          resuming: true,
+          spectator: true,
+        });
+        tictactoe.spectateTo(socket, room);
+        pizza.spectateTo(socket, room);
+        reversi.spectateTo(socket, room);
+        rps.spectateTo(socket, room);
+        connect4.spectateTo(socket, room);
+      } else {
+        socket.emit("room-joined", { code: room.code, resuming: true });
+        if (idx !== -1) {
+          if (room.gameOn) {
+            socket.emit("set-table", room.table);
+            if (room.currentPlayer === idx) {
+              socket.emit("set-turn", {
+                symbol: room.players[idx].symbol,
+                text: "Your turn",
+              });
+            } else {
+              const otherPlayer = room.players[1 - idx];
+              if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
+            }
+          }
+          if (room.pizza.active) pizza.resync(socket, room, idx);
+          if (room.reversi && room.reversi.active) reversi.resync(socket, room, idx);
+          if (room.rps && room.rps.active) rps.resync(socket, room, idx);
+          if (room.connect4 && room.connect4.active) connect4.resync(socket, room, idx);
+        }
+      }
+      toRoom(room, "room-update", getRoomView(room));
+    } else {
+      existingPlayer.roomCode = null;
+    }
+  } else {
+    // Not active in this run — add them to the global player list. They stay
+    // in the lobby until they create or join a room.
+    addNewPlayer(socket, clientName || "Player", persistentUserId);
+  }
+
+  // Let every connected client see the updated online players list
+  io.emit("online-players", getOnlinePlayers());
+}
+
+// Register a brand new player into the global player list (no seating).
+function addNewPlayer(socket, name, persistentUserId) {
+  var newPlayer = {
+    id: socket.id,
+    name,
+    symbol: null, // Only assigned temporarily when the player picks tic tac toe
+    persistentUserId, // Store the persistent ID
+    game: null, // Selected game (tictactoe | pizza)
+    online: true,
+    roomCode: null, // Room the player is seated in (set on create/join)
+  };
+  console.log(newPlayer);
+  socket.emit("name-set", { name });
+
+  players.push(newPlayer);
+  io.emit("online-players", getOnlinePlayers());
+
+  // Ensure a stats entry exists for this player
+  if (!stats.players[persistentUserId]) {
+    stats.players[persistentUserId] = {
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      name,
+    };
+    saveStats();
+  }
+
+  socket.emit("server-info", "Create a room or join one with a code to play.");
+  return true;
+}
+
+// Create a new room and seat the creator.
+function createRoomHandler(socket) {
+  const player = players.find((p) => p.id === socket.id);
+  if (!player) {
+    socket.emit("server-warn", "Please log in first to create a room.");
+    return;
+  }
+  if (player.roomCode && rooms[player.roomCode]) {
+    socket.emit("server-info", "You are already in room " + player.roomCode + ".");
+    return;
+  }
+  const code = generateRoomCode();
+  const room = makeRoom(code, player.persistentUserId);
+  rooms[code] = room;
+  player.roomCode = code;
+  room.players[0] = player;
+  socket.emit("room-created", { code });
+  toRoom(room, "room-update", getRoomView(room));
+  io.emit("online-players", getOnlinePlayers());
+  scheduleRoomExpiry(room);
+}
+
+// Join an existing room by join code.
+function joinRoomHandler(socket, codeInput) {
+  const player = players.find((p) => p.id === socket.id);
+  if (!player) {
+    socket.emit("server-warn", "Please log in first to join a room.");
+    return;
+  }
+  const code = String(codeInput || "").trim().toUpperCase();
+  const room = rooms[code];
+  if (!room) {
+    socket.emit("room-error", "Room '" + (code || "?") + "' not found.");
+    return;
+  }
+  if (player.roomCode === code && roomIndexOf(room, socket.id) !== -1) {
+    socket.emit("server-info", "You are already in room " + code + ".");
+    return;
+  }
+  if (player.roomCode && rooms[player.roomCode]) {
+    socket.emit("server-warn", "Leave your current room first.");
+    return;
+  }
+  const seat = findFreeSeat(room);
+  if (seat === -1) {
+    // Room is full: join as a spectator instead.
+    if (room.spectators.includes(player)) {
+      socket.emit("server-info", "You are already watching room " + code + ".");
+      return;
+    }
+    room.spectators.push(player);
+    player.roomCode = code;
+    room.lastActivity = Date.now();
+    socket.emit("room-joined", { code, resuming: false, spectator: true });
+    socket.emit("server-info", "Both seats are taken — you joined as a spectator.");
+    tictactoe.spectateTo(socket, room);
+    pizza.spectateTo(socket, room);
+    reversi.spectateTo(socket, room);
+    connect4.spectateTo(socket, room);
+    toRoom(room, "room-update", getRoomView(room));
+    io.emit("online-players", getOnlinePlayers());
+    return;
+  }
+  room.players[seat] = player;
+  player.roomCode = code;
+  room.lastActivity = Date.now();
+  socket.emit("room-joined", { code, resuming: false });
+  const other = room.players.find((p) => p && p.id !== socket.id);
+  if (other) {
+    io.to(other.id).emit("server-info", player.name + " joined the room!");
+  }
+  toRoom(room, "room-update", getRoomView(room));
+  io.emit("online-players", getOnlinePlayers());
+}
+
+// Delete a room once no players remain, kicking any spectators out.
+function closeRoom(room) {
+  delete rooms[room.code];
+  for (const sp of room.spectators) {
+    if (sp && sp.id) {
+      sp.roomCode = null;
+      io.to(sp.id).emit("room-left");
+    }
+  }
+  room.spectators = [];
+  console.log("Room " + room.code + " closed (empty).");
+}
+
+// Leave a room (back to the lobby).
+function leaveRoomHandler(socket) {
+  const room = getRoomForSocket(socket);
+  if (!room) {
+    socket.emit("server-warn", "You are not in a room.");
+    return;
+  }
+  const index = roomIndexOf(room, socket.id);
+  if (index === -1) {
+    // Spectator leaving.
+    const si = room.spectators.findIndex((p) => p.id === socket.id);
+    if (si === -1) {
+      socket.emit("server-warn", "You are not in a room.");
+      return;
+    }
+    const sp = room.spectators[si];
+    room.spectators.splice(si, 1);
+    sp.roomCode = null;
+    socket.emit("room-left");
+    if (!room.players.some(Boolean)) {
+      closeRoom(room);
+    } else {
+      toRoom(room, "room-update", getRoomView(room));
+    }
+    io.emit("online-players", getOnlinePlayers());
+    return;
+  }
+  const player = index !== -1 ? room.players[index] : null;
+  if (player) {
+    player.roomCode = null;
+    player.game = null;
+    player.symbol = null;
+    room.players[index] = null;
+  }
+  const other = room.players.find((p) => p && p.id !== socket.id);
+  if (other) {
+    if (room.gameOn) {
+      room.gameOn = false;
+      room.table = tictactoe.emptyTable();
+      room.virtualTable = tictactoe.emptyVirtualTable();
+      io.to(other.id).emit("clear-table", "");
+    }
+    room.resetRequest = false;
+    pizza.reset(room);
+    reversi.reset(room);
+    rps.reset(room);
+    connect4.reset(room);
+    io.to(other.id).emit("p2-left", player ? player.name : "A player");
+  }
+  toSpectators(room, "spectate-reset");
+  room.lastActivity = Date.now();
+  socket.emit("room-left");
+  if (!room.players.some(Boolean)) {
+    closeRoom(room);
+  } else {
+    toRoom(room, "room-update", getRoomView(room));
+  }
+  io.emit("online-players", getOnlinePlayers());
+}
+
+function getOnlinePlayers() {
+  return players
+    .filter((p) => p.online && !p.isBot)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      game: p.game,
+      roomCode: p.roomCode,
+    }));
+}
+
+// Start the selected game when both seated players agree on one.
+function maybeStartSelectedGame(room) {
+  if (room.gameOn || room.pizza.active || room.reversi.active || room.rps.active || room.connect4.active) return;
+  if (!room.players[0] || !room.players[1]) return;
+  const p0 = room.players[0];
+  const p1 = room.players[1];
+  if (!p0.game || p0.game !== p1.game) return;
+  if (p0.game === "pizza") {
+    pizza.startGame(room);
+  } else if (p0.game === "reversi") {
+    reversi.startGame(room);
+  } else if (p0.game === "rps") {
+    rps.startGame(room);
+  } else if (p0.game === "connect4") {
+    connect4.startGame(room);
+  } else {
+    room.gameOn = true;
+    tictactoe.startGame(room);
+  }
+}
 
 io.on("connection", (socket) => {
   socket.emit("join-message", "connected to server ✅");
-  // Initially, we don't know if they are a new or returning user,
-  // the client will send persistentUserId via 'player-initial-connect'
+  // The client sends its stored login token via 'auth-connect'
+  // (or falls back to 'player-initial-connect' for the legacy /name flow)
   socket.emit(
     "server-info",
     "Please wait while we set things up, or use '/name <your name>' if you are new!",
@@ -146,130 +518,98 @@ io.on("connection", (socket) => {
   console.log(socket.id);
 
   socket.on("player-initial-connect", (data) => {
-    const { persistentUserId, name: clientName } = data; // Get name from client as well, it might be stored locally
-    console.log(
-      `Initial connect from persistentUserId: ${persistentUserId}, clientName: ${clientName}`,
-    );
+    connectPlayer(socket, data);
+  });
 
-    // Check if the player is already active in this server run
-    let activeIndex = players.findIndex(
-      (player) => player.persistentUserId === persistentUserId,
-    );
-
-    if (activeIndex !== -1) {
-      // Active player exists (reconnection in same run), update socket id and name
-      let existingPlayer = players[activeIndex];
-      existingPlayer.id = socket.id;
-      existingPlayer.online = true;
-      if (clientName && existingPlayer.name !== clientName) {
-        existingPlayer.name = clientName;
-      }
-
-      // Also update persisted record if present
-      let storedIndex = storedPlayers.findIndex(
-        (p) => p.persistentUserId === persistentUserId,
-      );
-      if (storedIndex !== -1) {
-        storedPlayers[storedIndex].id = socket.id;
-        if (clientName) storedPlayers[storedIndex].name = existingPlayer.name;
-        savePlayers();
-      }
-
-      socket.emit("welcome-back", existingPlayer.name);
-      socket.emit("set-table", table);
-
-      if (players.length > 1) {
-        socket.broadcast.emit("player-reconnect", existingPlayer.name);
-      }
-
-      if (gameOn) {
-        const currentTurnPlayer = players[currentPlayer];
-        if (
-          currentTurnPlayer &&
-          currentTurnPlayer.persistentUserId === existingPlayer.persistentUserId
-        ) {
-          socket.emit("set-turn", {
-            symbol: existingPlayer.symbol,
-            text: "Your turn",
-          });
-        } else {
-          const otherPlayer = players.find(
-            (p) => p.persistentUserId !== existingPlayer.persistentUserId,
-          );
-          if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
-        }
-      }
-
-      if (players.length === 2 && !gameOn) maybeStartSelectedGame();
+  // --- Auth flow -----------------------------------------------------------
+  // The client sends its stored login token on connect. If valid, we log them
+  // in automatically and connect them to the lobby. Otherwise we ask them to
+  // log in or register via the auth screen.
+  socket.on("auth-connect", (data) => {
+    const token = data && data.token;
+    const key = token && accounts.tokens[token];
+    if (key && accounts.accounts[key]) {
+      const acc = accounts.accounts[key];
+      socket.emit("auth-success", {
+        token,
+        username: acc.username,
+        persistentUserId: acc.persistentUserId,
+      });
+      connectPlayer(socket, {
+        persistentUserId: acc.persistentUserId,
+        name: acc.username,
+      });
     } else {
-      // Not active in this run; check persisted records
-      let storedIndex = storedPlayers.findIndex(
-        (p) => p.persistentUserId === persistentUserId,
-      );
-      if (storedIndex !== -1) {
-        // Found a persisted player; recreate their active record and push into `players`
-        const stored = storedPlayers[storedIndex];
-        const activePlayer = {
-          id: socket.id,
-          name: stored.name,
-          turn: false,
-          symbol: stored.symbol,
-          persistentUserId: stored.persistentUserId,
-          online: true,
-        };
-        players.push(activePlayer);
+      socket.emit("auth-required", {
+        message: "Please log in or create an account.",
+      });
+    }
+  });
 
-        // Update persisted id and save
-        storedPlayers[storedIndex].id = socket.id;
-        savePlayers();
+  socket.on("register", async (data) => {
+    const username = ((data && data.username) || "").trim();
+    const password = (data && data.password) || "";
+    const persistentUserId =
+      (data && data.persistentUserId) || crypto.randomUUID();
 
-        socket.emit("welcome-back", stored.name);
-        socket.emit("set-table", table);
-
-        if (players.length > 1) {
-          socket.broadcast.emit("player-reconnect", stored.name);
-        }
-
-        if (gameOn) {
-          const currentTurnPlayer = players[currentPlayer];
-          if (
-            currentTurnPlayer &&
-            currentTurnPlayer.persistentUserId === stored.persistentUserId
-          ) {
-            socket.emit("set-turn", {
-              symbol: stored.symbol,
-              text: "Your turn",
-            });
-          } else {
-            const otherPlayer = players.find(
-              (p) => p.persistentUserId !== stored.persistentUserId,
-            );
-            if (otherPlayer) socket.emit("p2-turn", otherPlayer.name);
-          }
-        }
-
-        if (players.length === 2 && !gameOn) maybeStartSelectedGame();
-      } else {
-        // New persistent user connecting, they still need to use /name
-        socket.emit(
-          "server-info",
-          "Welcome, new player! Please use '/name <your name>' to join the game.",
-        );
-      }
+    if (username.length < 2 || username.length > 20) {
+      socket.emit("auth-error", "Username must be 2-20 characters.");
+      return;
+    }
+    if (password.length < 4) {
+      socket.emit("auth-error", "Password must be at least 4 characters.");
+      return;
+    }
+    const key = username.toLowerCase();
+    if (accounts.accounts[key]) {
+      socket.emit("auth-error", "That username is already taken.");
+      return;
     }
 
-    // Resync an active pizza game for a reconnecting player
-    const idx = players.findIndex(
-      (p) => p.persistentUserId === persistentUserId,
-    );
-    if (idx !== -1 && pizza.active) resyncPizza(socket, idx);
+    const { salt, hash } = await hashPassword(password);
+    accounts.accounts[key] = { username, salt, hash, persistentUserId };
+    const token = generateToken();
+    accounts.tokens[token] = key;
+    saveAccounts();
 
-    // Let every connected client see the updated online players list
-    io.emit("online-players", getOnlinePlayers());
+    socket.emit("auth-success", { token, username, persistentUserId });
+    connectPlayer(socket, { persistentUserId, name: username });
+  });
+
+  socket.on("login", async (data) => {
+    const username = ((data && data.username) || "").trim();
+    const password = (data && data.password) || "";
+    const key = username.toLowerCase();
+    const acc = accounts.accounts[key];
+    if (!acc || !(await verifyPassword(password, acc.salt, acc.hash))) {
+      socket.emit("auth-error", "Wrong username or password.");
+      return;
+    }
+
+    const token = generateToken();
+    accounts.tokens[token] = key;
+    saveAccounts();
+
+    socket.emit("auth-success", {
+      token,
+      username: acc.username,
+      persistentUserId: acc.persistentUserId,
+    });
+    connectPlayer(socket, {
+      persistentUserId: acc.persistentUserId,
+      name: acc.username,
+    });
   });
 
   socket.on("set-name", (data) => {
     const { name, persistentUserId } = data;
+    if (!name || !name.trim()) {
+      socket.emit(
+        "server-warn",
+        "Please provide a name with /name <your name>",
+      );
+      return;
+    }
 
     // Check if a player with this persistent ID already exists
     let existingPlayerIndex = players.findIndex(
@@ -280,118 +620,32 @@ io.on("connection", (socket) => {
       // Player with this persistent ID exists
       let existingPlayer = players[existingPlayerIndex];
 
-      if (gameOn) {
+      const room = existingPlayer.roomCode ? rooms[existingPlayer.roomCode] : null;
+      if (room && room.gameOn) {
         socket.emit("server-warn", "you can't change your name during a game");
-      } else {
-        // Player exists and is not in game, allow name change
-        existingPlayer.name = name;
-        // Update persisted record if present
-        let storedIndex = storedPlayers.findIndex(
-          (p) => p.persistentUserId === persistentUserId,
-        );
-        if (storedIndex !== -1) {
-          storedPlayers[storedIndex].name = name;
-        }
-        // Update stats name if present
-        if (stats.players[persistentUserId]) {
-          stats.players[persistentUserId].name = name;
-          saveStats();
-        }
-        savePlayers(); // Save the updated persisted players
-        socket.emit("server-info", "Your name has been updated to " + name);
-        socket.emit("name-set", {
-          name,
-          symbol: existingPlayer.symbol,
-        }); // Re-send symbol with updated name
-        socket.broadcast.emit(
-          "server-info",
-          `Player ${existingPlayer.symbol} is now known as ${name}.`,
-        );
-        io.emit("online-players", getOnlinePlayers());
-      }
-    } else {
-      // This is a new player trying to set a name for the first time
-      if (players.length >= 2) {
-        socket.emit(
-          "server-warn",
-          "Game is full. Please wait for a spot to open.",
-        );
         return;
       }
-
-      let assignedSymbol;
-      if (players.length === 0) {
-        r = Math.floor(Math.random() * 2);
-        assignedSymbol = r === 0 ? "x" : "o";
-      } else {
-        // Assign the opposite symbol to the first player
-        assignedSymbol = players[0].symbol === "x" ? "o" : "x";
-      }
-
-      var newPlayer = {
-        id: socket.id,
-        name,
-        turn: false,
-        symbol: assignedSymbol,
-        persistentUserId, // Store the persistent ID
-        game: null, // Selected game (tictactoe | pizza)
-        online: true,
-      };
-      console.log(newPlayer);
-      socket.emit("name-set", { name, symbol: assignedSymbol });
-      socket.emit("set-table", table); // Send current table state to the new player
-
-      players.push(newPlayer);
-      io.emit("online-players", getOnlinePlayers());
-
-      // Persist the new player into storedPlayers and save
-      let storedIndex = storedPlayers.findIndex(
-        (p) => p.persistentUserId === persistentUserId,
-      );
-      if (storedIndex === -1) {
-        storedPlayers.push({
-          id: socket.id,
-          name,
-          symbol: assignedSymbol,
-          persistentUserId,
-        });
-      } else {
-        storedPlayers[storedIndex].id = socket.id;
-        storedPlayers[storedIndex].name = name;
-        storedPlayers[storedIndex].symbol = assignedSymbol;
-      }
-      savePlayers(); // Save the new persisted player
-
-      // Ensure a stats entry exists for this player
-      if (!stats.players[persistentUserId]) {
-        stats.players[persistentUserId] = {
-          wins: 0,
-          losses: 0,
-          draws: 0,
-          name,
-          symbol: assignedSymbol,
-        };
+      existingPlayer.name = name;
+      // Update stats name if present
+      if (stats.players[persistentUserId]) {
+        stats.players[persistentUserId].name = name;
         saveStats();
       }
-
-      if (players.length < 2) {
-        socket.emit("server-info", "waiting for player 2...");
-      }
-
-      if (players.length === 2) {
-        socket.emit(
-          "server-info",
-          "Player 2 joined! Select a game from the lobby to start.",
-        );
-        const otherPlayer = players.find((p) => p.id !== socket.id);
-        if (otherPlayer) {
-          io.to(otherPlayer.id).emit(
-            "p2-join",
-            newPlayer.name + " joined! Select a game from the lobby to start.",
-          );
-        }
-        maybeStartSelectedGame();
-      }
+      socket.emit("server-info", "Your name has been updated to " + name);
+      socket.emit("name-set", {
+        name,
+        symbol: existingPlayer.symbol,
+      }); // Re-send symbol with updated name (may be null outside a game)
+      const symbolTag = existingPlayer.symbol ? ` (${existingPlayer.symbol})` : "";
+      socket.broadcast.emit(
+        "server-info",
+        `Player${symbolTag} is now known as ${name}.`,
+      );
+      if (room) toRoom(room, "room-update", getRoomView(room));
+      io.emit("online-players", getOnlinePlayers());
+    } else {
+      // This is a new player trying to set a name for the first time
+      addNewPlayer(socket, name.trim(), persistentUserId);
     }
   });
 
@@ -399,25 +653,89 @@ io.on("connection", (socket) => {
     console.log(name);
   });
 
-  socket.on("reset-game", (x) => {
-    resetGame();
+  // -------- Room handlers --------
+  socket.on("create-room", () => {
+    createRoomHandler(socket);
   });
 
-  socket.on("request-game-reset", (name) => {
-    socket.broadcast.emit(
-      "server-info",
-      name + " wants to reset the game, use '/accept' to accept the request",
-    );
-    resetRequest = true;
+  socket.on("join-room", (data) => {
+    joinRoomHandler(socket, data && data.code);
   });
 
-  socket.on("accept-game-reset", (x) => {
-    if (resetRequest) {
-      resetGame();
-      resetRequest = false;
-    } else {
-      socket.emit("server-info", "No reset request");
+  socket.on("leave-room", () => {
+    leaveRoomHandler(socket);
+  });
+
+  // -------- AI bot handlers --------
+  socket.on("add-bot", (data) => {
+    const room = getRoomForSocket(socket);
+    if (!room) {
+      socket.emit("server-warn", "Join or create a room first to add an AI.");
+      return;
     }
+    if (roomIndexOf(room, socket.id) === -1) return;
+    if (room.gameOn || room.pizza.active || room.reversi.active || room.connect4.active) {
+      socket.emit("server-warn", "Finish the current game before adding an AI.");
+      return;
+    }
+    if (room.players.filter(Boolean).length >= 2) {
+      socket.emit("server-warn", "The room is already full.");
+      return;
+    }
+    const difficulty = ["easy", "medium", "hard"].includes(
+      data && data.difficulty,
+    )
+      ? data.difficulty
+      : "medium";
+    if (bot.addBot(room, difficulty)) {
+      socket.emit(
+        "server-info",
+        "AI Bot (" + difficulty + ") is joining your room...",
+      );
+    } else {
+      socket.emit("server-warn", "An AI is already joining this room.");
+    }
+  });
+
+  socket.on("remove-bot", () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    if (!bot.isBotSeated(room)) return;
+    bot.removeBot(room);
+  });
+
+  socket.on("reset-game", (x) => {
+    const room = getRoomForSocket(socket);
+    if (room) tictactoe.resetGame(room);
+  });
+
+  socket.on("request-game-reset", (data) => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    if (room.pizza.active) return;
+    const me = room.players.find((p) => p && p.id === socket.id);
+    const other = room.players.find((p) => p && p.id !== socket.id);
+    room.resetRequest = true;
+    if (other) {
+      io.to(other.id).emit("reset-request", {
+        name: me ? me.name : (data && data.name) || "Your opponent",
+      });
+    }
+  });
+
+  socket.on("accept-game-reset", () => {
+    const room = getRoomForSocket(socket);
+    if (!room || !room.resetRequest) return;
+    room.resetRequest = false;
+    tictactoe.resetGame(room);
+  });
+
+  socket.on("decline-game-reset", () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const other = room.players.find((p) => p && p.id !== socket.id);
+    room.resetRequest = false;
+    if (other) io.to(other.id).emit("reset-declined");
   });
 
   socket.on("echo-message", (message) => {
@@ -428,35 +746,55 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", (message) => {
-    let playerRegistered = players.some((player) => player.id == socket.id);
-    if (playerRegistered) {
-      if (pizza.active) resetPizza();
-      let index = getIndex(socket.id);
-      if (index !== -1) {
-        // Ensure player is found before processing
-        let nm = players[index].name;
-        socket.broadcast.emit("p2-left", nm);
-        players[index].online = false;
-        // Do not remove player from persistent storage on disconnect, only update their socket.id if needed
-        // players.splice(index, 1); // Removed: Keep player data for reconnection
-        // Instead, we might want to mark them as disconnected or just let the new connection overwrite their socket.id
-        // For now, we'll just log and keep their data in 'players' array for next connection.
+    let player = players.find((p) => p.id === socket.id);
+    if (player) {
+      // If seated in a room or watching it, handle their departure.
+      const room = player.roomCode ? rooms[player.roomCode] : null;
+      if (room) {
+        if (roomIndexOf(room, socket.id) === -1) {
+          // Spectator disconnected.
+          const si = room.spectators.indexOf(player);
+          if (si !== -1) {
+            room.spectators.splice(si, 1);
+            player.roomCode = null;
+            toRoom(room, "room-update", getRoomView(room));
+          }
+        } else {
+          if (room.pizza.active) pizza.reset(room);
+          room.resetRequest = false;
+          reversi.reset(room);
+          rps.reset(room);
+          connect4.reset(room);
+          if (room.gameOn) {
+            room.gameOn = false;
+            room.table = tictactoe.emptyTable();
+            room.virtualTable = tictactoe.emptyVirtualTable();
+          }
+          const other = room.players.find((p) => p && p.id !== socket.id);
+          if (other) {
+            io.to(other.id).emit("p2-left", player.name);
+            io.to(other.id).emit("clear-table", "");
+          }
+          toSpectators(room, "spectate-reset");
+          toRoom(room, "room-update", getRoomView(room));
+        }
+        if (!room.players.some(Boolean)) {
+          closeRoom(room);
+        }
       }
-      io.emit("online-players", getOnlinePlayers());
+      player.online = false;
+      // Do not remove player from persistent storage on disconnect, keep their
+      // data for reconnection.
     }
+    io.emit("online-players", getOnlinePlayers());
     console.log(socket.id + " disconnected");
   });
 
+  // -------- Tic-tac-toe handlers --------
   socket.on("btn-pos", (x) => {
-    if (table[x.index] == "") {
-      table[x.index] = x.symbol;
-      virtualTable[x.index] = x.symbol;
-      //console.log(x);
-      socket.broadcast.emit("click-btn", x);
-      checkWin();
-    } else {
-      socket.emit("invalid-move", "invalid move be careful 🫤");
-    }
+    const room = getRoomForSocket(socket);
+    if (!room || !room.gameOn) return;
+    tictactoe.play(socket, room, x);
   });
 
   socket.on("user-message", (message) => {
@@ -474,20 +812,55 @@ io.on("connection", (socket) => {
   });
 
   socket.on("select-game", (data) => {
-    const index = getIndex(socket.id);
+    const room = getRoomForSocket(socket);
+    if (!room) {
+      socket.emit("server-warn", "Join or create a room first to pick a game.");
+      return;
+    }
+    const index = roomIndexOf(room, socket.id);
     if (index === -1) return;
     const gameId = data && data.game;
-    if (gameId !== "tictactoe" && gameId !== "pizza") return;
-    if (gameOn) {
+    if (
+      gameId !== "tictactoe" &&
+      gameId !== "pizza" &&
+      gameId !== "reversi" &&
+      gameId !== "rps" &&
+      gameId !== "connect4"
+    )
+      return;
+    if (room.gameOn) {
       socket.emit("server-warn", "A Tic Tac Toe game is already in progress.");
       return;
     }
-    if (pizza.active) {
+    if (room.pizza.active) {
       socket.emit("server-warn", "A Pizza game is already in progress.");
       return;
     }
-    players[index].game = gameId;
-    const otherPlayer = players.find((p) => p.id !== socket.id);
+    if (room.reversi.active) {
+      socket.emit("server-warn", "A Reversi game is already in progress.");
+      return;
+    }
+    if (room.rps.active) {
+      socket.emit("server-warn", "A Rock Paper Scissors game is already in progress.");
+      return;
+    }
+    if (room.connect4.active) {
+      socket.emit("server-warn", "A Connect 4 game is already in progress.");
+      return;
+    }
+    const player = room.players[index];
+    player.game = gameId;
+    if (gameId === "tictactoe") {
+      // Symbols only exist temporarily while playing tic tac toe
+      player.symbol = tictactoe.assignSymbolFor(room, index);
+    } else if (gameId === "reversi") {
+      player.symbol = reversi.assignSymbolFor(room, index);
+    } else if (gameId === "connect4") {
+      player.symbol = connect4.assignSymbolFor(room, index);
+    } else {
+      player.symbol = null;
+    }
+    const otherPlayer = room.players[1 - index];
     if (otherPlayer) {
       socket.emit(
         "server-info",
@@ -498,385 +871,115 @@ io.on("connection", (socket) => {
           " to pick the same game...",
       );
     }
-    maybeStartSelectedGame();
+    toRoom(room, "room-update", getRoomView(room));
+    maybeStartSelectedGame(room);
   });
 
   socket.on("leave-game", () => {
-    const index = getIndex(socket.id);
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const index = roomIndexOf(room, socket.id);
     if (index === -1) return;
-    players[index].game = null;
-    const other = players[1 - index];
-    if (gameOn) {
-      gameOn = false;
-      table = ["", "", "", "", "", "", "", "", ""];
-      virtualTable = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+    const player = room.players[index];
+    player.game = null;
+    player.symbol = null;
+    const other = room.players[1 - index];
+    room.resetRequest = false;
+    if (room.gameOn) {
+      room.gameOn = false;
+      room.table = tictactoe.emptyTable();
+      room.virtualTable = tictactoe.emptyVirtualTable();
       if (other) io.to(other.id).emit("clear-table", "");
     }
-    resetPizza();
-    if (other) io.to(other.id).emit("p2-left", players[index].name);
+    pizza.reset(room);
+    reversi.reset(room);
+    rps.reset(room);
+    connect4.reset(room);
+    if (other) io.to(other.id).emit("p2-left", player.name);
+    toSpectators(room, "spectate-reset");
+    toRoom(room, "room-update", getRoomView(room));
+  });
+
+  socket.on("take-seat", () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const player = players.find((p) => p.id === socket.id);
+    if (!player || roomIndexOf(room, socket.id) !== -1) return;
+    if (room.gameOn || room.pizza.active || room.reversi.active || room.rps.active || room.connect4.active) {
+      socket.emit("server-warn", "Wait for the current game to end first.");
+      return;
+    }
+    const seat = findFreeSeat(room);
+    if (seat === -1) {
+      socket.emit("server-warn", "No empty seats right now.");
+      return;
+    }
+    const si = room.spectators.indexOf(player);
+    if (si !== -1) room.spectators.splice(si, 1);
+    room.players[seat] = player;
+    socket.emit("server-info", "You took a seat in the game!");
+    const other = room.players.find((p) => p && p.id !== socket.id);
+    if (other) {
+      io.to(other.id).emit("server-info", player.name + " took a seat!");
+    }
+    socket.emit("room-joined", { code: room.code, resuming: false });
+    toRoom(room, "room-update", getRoomView(room));
+    io.emit("online-players", getOnlinePlayers());
   });
 
   // -------- Pizza game handlers --------
   socket.on("pizza-submit", (data) => {
-    if (pizza.phase !== "placement") return;
-    const index = getIndex(socket.id);
-    if (index === -1 || pizza.submitted[index]) return;
-    const board = data && data.board;
-    if (!Array.isArray(board) || board.length !== 20) return;
-    const count = board.reduce((n, v) => n + (v ? 1 : 0), 0);
-    if (count !== 5) {
-      socket.emit("pizza-info", "Place exactly 5 slices before locking in.");
-      return;
-    }
-    pizza.boards[index] = board.map(Boolean);
-    pizza.submitted[index] = true;
-    const other = players[1 - index];
-    if (other) io.to(other.id).emit("pizza-opponent-locked");
-    if (pizza.submitted[0] && pizza.submitted[1]) {
-      beginPizzaBattle();
-    } else {
-      socket.emit("pizza-waiting", {
-        opponentDone: pizza.submitted[1 - index],
-      });
-    }
+    const room = getRoomForSocket(socket);
+    if (room) pizza.submit(socket, room, data);
   });
 
   socket.on("pizza-attack", (data) => {
-    if (pizza.phase !== "battle" || !pizza.active) return;
-    const index = getIndex(socket.id);
-    if (index === -1 || index !== pizza.turn) return;
-    const cell = data && data.cell;
-    if (typeof cell !== "number" || cell < 0 || cell > 19) return;
-    const defender = 1 - index;
-    if (pizza.attacked[defender][cell]) {
-      socket.emit(
-        "pizza-info",
-        "That cell was already attacked. Pick another.",
-      );
-      return;
-    }
-    pizza.attacked[defender][cell] = true;
-    const hit = pizza.boards[defender][cell];
-    if (hit) pizza.found[index]++;
-    const gameOver = pizza.found[index] >= 5;
-    if (gameOver) {
-      pizza.active = false;
-      pizza.phase = "over";
-      io.to(players[index].id).emit("pizza-game-over", {
-        won: true,
-      });
-      io.to(players[defender].id).emit("pizza-game-over", {
-        won: false,
-      });
-      io.emit(
-        "server-info",
-        "Pizza game over! Go back to the lobby to play again.",
-      );
-    } else {
-      pizza.turn = defender;
-      io.to(players[index].id).emit("pizza-attack-result", {
-        youAttacked: true,
-        cell,
-        hit,
-        yourTurn: false,
-      });
-      io.to(players[defender].id).emit("pizza-attack-result", {
-        youAttacked: false,
-        cell,
-        hit,
-        yourTurn: true,
-      });
-    }
+    const room = getRoomForSocket(socket);
+    if (room) pizza.attack(socket, room, data);
   });
 
   socket.on("pizza-rematch", () => {
-    if (pizza.phase !== "over") return;
-    const index = getIndex(socket.id);
-    if (index === -1 || pizza.rematch[index]) return;
-    pizza.rematch[index] = true;
-    const other = players[1 - index];
-    if (other) io.to(other.id).emit("pizza-rematch-request");
-    if (pizza.rematch[0] && pizza.rematch[1]) {
-      startPizzaGame();
-    } else {
-      socket.emit("pizza-info", "Waiting for opponent to rematch...");
-    }
+    const room = getRoomForSocket(socket);
+    if (room) pizza.rematch(socket, room);
+  });
+
+  // -------- Reversi game handlers --------
+  socket.on("reversi-move", (data) => {
+    const room = getRoomForSocket(socket);
+    if (room) reversi.play(socket, room, data);
+  });
+
+  socket.on("reversi-rematch", () => {
+    const room = getRoomForSocket(socket);
+    if (room) reversi.rematch(socket, room);
+  });
+
+  // -------- Rock Paper Scissors game handlers --------
+  socket.on("rps-pick", (data) => {
+    const room = getRoomForSocket(socket);
+    if (room) rps.pick(socket, room, data);
+  });
+
+  socket.on("rps-rematch", () => {
+    const room = getRoomForSocket(socket);
+    if (room) rps.rematch(socket, room);
+  });
+
+  // -------- Connect 4 game handlers --------
+  socket.on("connect4-drop", (data) => {
+    const room = getRoomForSocket(socket);
+    if (room) connect4.play(socket, room, data);
+  });
+
+  socket.on("connect4-rematch", () => {
+    const room = getRoomForSocket(socket);
+    if (room) connect4.rematch(socket, room);
   });
 });
 
-function startGame() {
-  io.to(players[0].id).emit("player2", {
-    name: players[1].name,
-    symbol: players[1].symbol,
-  });
-  io.to(players[1].id).emit("player2", {
-    name: players[0].name,
-    symbol: players[0].symbol,
-  });
-  /*for(let i=0; i<players.length; i++){
-		io.to(players[i].id).emit("server-info", "we dey active");
-	}*/
-  setTimeout(() => {
-    currentPlayer = Math.floor(Math.random() * 2);
-    let inv = currentPlayer == 0 ? 1 : 0;
-    io.to(players[inv].id).emit("p2-turn", players[currentPlayer].name);
-    io.to(players[currentPlayer].id).emit("set-turn", {
-      symbol: players[currentPlayer].symbol,
-      text: "Your turn",
-    });
-  }, 1000);
-}
-
-function checkWin() {
-  var win;
-  for (let i = 0; i < validCombo.length; i++) {
-    let combo = validCombo[i];
-    if (
-      virtualTable[combo[0]] == virtualTable[combo[1]] &&
-      virtualTable[combo[0]] == virtualTable[combo[2]]
-    ) {
-      win = true;
-      break;
-    }
-  }
-
-  if (win) {
-    gameOn = false;
-    let inv = currentPlayer == 0 ? 1 : 0;
-    io.to(players[inv].id).emit("p2-win", players[currentPlayer].name + " won");
-    io.to(players[currentPlayer].id).emit("you-win", "You Win! 🎉");
-
-    // Update stats: games played, winner wins, loser losses
-    stats.gamesPlayed = (stats.gamesPlayed || 0) + 1;
-    const winner = players[currentPlayer];
-    const loser = players[inv];
-    if (winner && winner.persistentUserId) {
-      if (!stats.players[winner.persistentUserId]) {
-        stats.players[winner.persistentUserId] = {
-          wins: 0,
-          losses: 0,
-          draws: 0,
-          name: winner.name,
-          symbol: winner.symbol,
-        };
-      }
-      stats.players[winner.persistentUserId].wins += 1;
-    }
-    if (loser && loser.persistentUserId) {
-      if (!stats.players[loser.persistentUserId]) {
-        stats.players[loser.persistentUserId] = {
-          wins: 0,
-          losses: 0,
-          draws: 0,
-          name: loser.name,
-          symbol: loser.symbol,
-        };
-      }
-      stats.players[loser.persistentUserId].losses += 1;
-    }
-    saveStats();
-
-    io.emit("server-info", "use '/reset' to start a new game");
-  } else {
-    // Check for a draw
-    const isDraw = table.every((cell) => cell !== "");
-    if (isDraw) {
-      gameOn = false;
-      io.emit("draw-game", "It's a Draw! 🤝");
-
-      // Update stats for draw
-      stats.gamesPlayed = (stats.gamesPlayed || 0) + 1;
-      // increment draw for all active players
-      players.forEach((p) => {
-        if (p && p.persistentUserId) {
-          if (!stats.players[p.persistentUserId]) {
-            stats.players[p.persistentUserId] = {
-              wins: 0,
-              losses: 0,
-              draws: 0,
-              name: p.name,
-              symbol: p.symbol,
-            };
-          }
-          stats.players[p.persistentUserId].draws += 1;
-        }
-      });
-      saveStats();
-
-      io.emit("server-info", "use '/reset' to start a new game");
-    } else {
-      currentPlayer = currentPlayer == 0 ? 1 : 0;
-      let inv = currentPlayer == 0 ? 1 : 0;
-      io.to(players[inv].id).emit("p2-turn", players[currentPlayer].name);
-      //io.emit("p2-turn", players[currentPlayer].name);
-      setTimeout(() => {
-        io.to(players[currentPlayer].id).emit("set-turn", {
-          symbol: players[currentPlayer].symbol,
-          text: "Your turn",
-        });
-      }, 1000);
-    }
-  }
-}
-
-function resetGame() {
-  table = ["", "", "", "", "", "", "", "", ""];
-  virtualTable = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
-  io.emit("clear-table", "");
-
-  gameOn = true;
-  setTimeout(() => {
-    currentPlayer = Math.floor(Math.random() * 2);
-    let inv = currentPlayer == 0 ? 1 : 0;
-    io.to(players[inv].id).emit("p2-turn", players[currentPlayer].name);
-    io.to(players[currentPlayer].id).emit("set-turn", {
-      symbol: players[currentPlayer].symbol,
-      text: "Your turn",
-    });
-  }, 1000);
-}
-
-function getIndex(id) {
-  var idx;
-  for (let i = 0; i < players.length; i++) {
-    if (players[i].id == id) {
-      idx = i;
-      break;
-    }
-  }
-  return idx;
-}
-
-function getOnlinePlayers() {
-  return players
-    .filter((p) => p.online)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      symbol: p.symbol,
-      game: p.game,
-    }));
-}
-
-// Start the pizza game for both selected players
-function maybeStartSelectedGame() {
-  if (gameOn || pizza.active) return;
-  if (players.length < 2) return;
-  const p0 = players[0];
-  const p1 = players[1];
-  if (!p0.game || p0.game !== p1.game) return;
-  if (p0.game === "pizza") {
-    startPizzaGame();
-  } else {
-    gameOn = true;
-    startGame();
-  }
-}
-
-function resetPizza() {
-  if (pizza.placementTimer) clearTimeout(pizza.placementTimer);
-  pizza = {
-    active: false,
-    phase: "idle",
-    boards: [Array(20).fill(false), Array(20).fill(false)],
-    attacked: [Array(20).fill(false), Array(20).fill(false)],
-    found: [0, 0],
-    turn: 0,
-    submitted: [false, false],
-    rematch: [false, false],
-    placementTimer: null,
-    placementStart: 0,
-  };
-}
-
-function startPizzaGame() {
-  resetPizza();
-  pizza.active = true;
-  pizza.phase = "placement";
-  pizza.placementStart = Date.now();
-  pizza.placementTimer = setTimeout(() => {
-    if (pizza.phase !== "placement") return;
-    for (let i = 0; i < 2; i++) {
-      if (!pizza.submitted[i]) {
-        autoPlacePizza(i);
-        io.to(players[i].id).emit(
-          "pizza-info",
-          "Time's up! Slices placed randomly.",
-        );
-      }
-    }
-    beginPizzaBattle();
-  }, 30000);
-
-  for (let i = 0; i < 2; i++) {
-    io.to(players[i].id).emit("pizza-start", {
-      opponentName: players[1 - i].name,
-      boardSize: 20,
-      slices: 5,
-      timeLimit: 30,
-    });
-  }
-}
-
-function autoPlacePizza(i) {
-  const board = pizza.boards[i];
-  let placed = 0;
-  while (placed < 5) {
-    const c = Math.floor(Math.random() * 20);
-    if (!board[c]) {
-      board[c] = true;
-      placed++;
-    }
-  }
-  pizza.submitted[i] = true;
-}
-
-function beginPizzaBattle() {
-  if (pizza.phase !== "placement") return;
-  clearTimeout(pizza.placementTimer);
-  pizza.phase = "battle";
-  pizza.turn = Math.floor(Math.random() * 2);
-  for (let i = 0; i < 2; i++) {
-    io.to(players[i].id).emit("pizza-battle-start", {
-      yourTurn: pizza.turn === i,
-      opponentName: players[1 - i].name,
-    });
-  }
-}
-
-function resyncPizza(socket, index) {
-  if (!pizza.active) return;
-  const opp = 1 - index;
-  const oppGuesses = pizza.attacked[opp].map((attacked, c) =>
-    attacked ? pizza.boards[opp][c] : null,
-  );
-  const timeLeft = Math.max(
-    0,
-    Math.ceil(30 - (Date.now() - pizza.placementStart) / 1000),
-  );
-  io.to(players[index].id).emit("pizza-sync", {
-    phase: pizza.phase,
-    submitted: pizza.submitted[index],
-    myBoard: pizza.boards[index],
-    myAttacked: pizza.attacked[index].slice(),
-    oppGuesses,
-    myTurn: pizza.turn === index,
-    opponentName: players[opp].name,
-    timeLeft,
-    result:
-      pizza.phase === "over"
-        ? pizza.found[index] >= 5
-          ? "won"
-          : "lost"
-        : pizza.found[opp] >= 5
-          ? "lost"
-          : null,
-  });
-}
-
 //console.log("serving!");
-// Everything now runs on port 3000!
-const PORT = 3000;
+// Everything now runs on port 3000 (override with PORT env var)!
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(
     `Game and WebSockets running together on http://localhost:${PORT}`,

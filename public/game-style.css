@@ -1,0 +1,68 @@
+/*!
+ * Shared styling for the playful "warm card" game views and the global
+ * "How to play" dialog.
+ *
+ * Gradients (bg-gradient-to-br from-… to-…), the frosted panels and the color
+ * tokens all come from the Tailwind runtime (src/TW4.js) and the theme system
+ * (themes.css). This file only adds the few bespoke effects that need real
+ * CSS: chunky bubble buttons, decorative header circles and the dialog
+ * entrance animation.
+ */
+
+/* ---- Chunky bubble button: thick bottom "bevel" that presses down ---- */
+.btn-bubble {
+  position: relative;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.22);
+  will-change: transform;
+}
+.btn-bubble:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+.btn-bubble:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
+}
+.btn-bubble:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* ---- Soft decorative circles used on playful gradient headers ---- */
+.deco-circle {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+
+/* ---- "How to play" dialog entrance ---- */
+@keyframes howto-pop {
+  0% {
+    transform: scale(0.85) translateY(18px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+.howto-pop {
+  animation: howto-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ---- Playful bounce for the big help button so players notice it ---- */
+@keyframes help-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+.help-bounce {
+  animation: help-bounce 1.6s ease-in-out 2;
+}

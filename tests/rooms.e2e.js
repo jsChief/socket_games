@@ -1,0 +1,875 @@
+// E2E test for game rooms.
+//
+// Starts the real server in-process (server.js listens on port 3000 when
+// required) and drives it with socket.io-client, verifying:
+//   1. create/find room by code, room seats 2 players
+//   2. tic-tac-toe starts only in the room where both players picked it
+//   3. pizza starts independently in a second room
+//   4. reversi starts independently in a third room (flip + turn pass)
+//   5. rock paper scissors starts in a fourth room (rounds + rematch)
+//   6. an AI bot can be added as a second player and plays all four games
+//   7. joining a full room puts you in spectator mode (live board, no
+//      private events, and you can take a freed seat)
+//   8. leaving a room returns players to the lobby and closes empty rooms
+//
+// Run with: node tests/rooms.e2e.js  (server must be safe to start on :3000)
+
+const { io } = require("socket.io-client");
+const fs = require("fs");
+const path = require("path");
+
+// Back up stats.json so running the test doesn't pollute real stats.
+const statsPath = path.join(__dirname, "..", "stats.json");
+let statsBackup = null;
+try {
+  statsBackup = fs.readFileSync(statsPath, "utf8");
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
+}
+
+// Use an alternate port so the test never collides with a dev server on :3000.
+process.env.PORT = process.env.E2E_PORT || "3100";
+const PORT = Number(process.env.PORT);
+
+require("../server"); // starts the HTTP + socket.io server on $PORT
+
+const URL = "http://localhost:" + PORT;
+
+let failures = 0;
+function assert(cond, label) {
+  if (cond) {
+    console.log("  PASS " + label);
+  } else {
+    failures++;
+    console.error("  FAIL " + label);
+  }
+}
+
+function connect(label) {
+  return new Promise((resolve, reject) => {
+    const s = io(URL, { reconnection: false, forceNew: true });
+    s._inbox = [];
+    s._label = label;
+    s.onAny((event, ...args) => {
+      s._inbox.push({ event, data: args[0] });
+    });
+    s.on("connect", () => resolve(s));
+    s.on("connect_error", reject);
+  });
+}
+
+function waitEvent(s, event, predicate, timeout) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const limit = timeout || 8000;
+    (function poll() {
+      const idx = s._inbox.findIndex(
+        (m) => m.event === event && (!predicate || predicate(m.data)),
+      );
+      if (idx !== -1) {
+        const m = s._inbox[idx];
+        s._inbox.splice(0, idx + 1);
+        resolve(m.data);
+        return;
+      }
+      if (Date.now() - start > limit) {
+        const dump = s._inbox
+          .map((m) => {
+            const d = m.data;
+            let preview = "";
+            if (d && typeof d === "object") {
+              preview = Object.keys(d)
+                .slice(0, 6)
+                .map((k) => k + "=" + JSON.stringify(d[k]).slice(0, 40))
+                .join(" ");
+            }
+            return m.event + (preview ? " {" + preview + "}" : "");
+          })
+          .join("\n      ");
+        reject(
+          new Error(
+            `[${s._label}] timeout waiting for ${event} (have ` +
+              s._inbox.length +
+              " queued:\n      " +
+              (dump || "(empty inbox)") +
+              ")",
+          ),
+        );
+        return;
+      }
+      setTimeout(poll, 20);
+    })();
+  });
+}
+
+// Wait for the first of several events across one or more sockets. This is a
+// single poller (unlike Promise.race over several waitEvent calls), so the
+// events on the *losers* are left untouched in their inboxes instead of being
+// silently consumed by a leftover poller.
+function waitAny(specs, timeout) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const limit = timeout || 8000;
+    (function poll() {
+      for (const sp of specs) {
+        const idx = sp.sock._inbox.findIndex((m) => sp.events.includes(m.event));
+        if (idx !== -1) {
+          const m = sp.sock._inbox[idx];
+          sp.sock._inbox.splice(0, idx + 1);
+          resolve({ sock: sp.sock, m });
+          return;
+        }
+      }
+      if (Date.now() - start > limit) {
+        reject(
+          new Error(
+            "timeout waiting for first of " +
+              specs.map((s) => s.events.join("/")).join(", "),
+          ),
+        );
+      }
+      setTimeout(poll, 20);
+    })();
+  });
+}
+
+function started(s) {
+  return waitEvent(
+    s,
+    "player2",
+    () => true,
+    5000,
+  ).then((d) => d);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function run() {
+  console.log("Connecting clients...");
+  const alice = await connect("alice");
+  const bob = await connect("bob");
+  const carol = await connect("carol");
+  const dave = await connect("dave");
+  const eve = await connect("eve");
+  const frank = await connect("frank");
+  const grace = await connect("grace");
+
+  // --- Authenticate (legacy /name flow is fine here) ---
+  alice.emit("player-initial-connect", {
+    persistentUserId: "e2e-alice",
+    name: "Alice",
+  });
+  bob.emit("player-initial-connect", {
+    persistentUserId: "e2e-bob",
+    name: "Bob",
+  });
+  carol.emit("player-initial-connect", {
+    persistentUserId: "e2e-carol",
+    name: "Carol",
+  });
+  dave.emit("player-initial-connect", {
+    persistentUserId: "e2e-dave",
+    name: "Dave",
+  });
+  eve.emit("player-initial-connect", {
+    persistentUserId: "e2e-eve",
+    name: "Eve",
+  });
+  frank.emit("player-initial-connect", {
+    persistentUserId: "e2e-frank",
+    name: "Frank",
+  });
+  grace.emit("player-initial-connect", {
+    persistentUserId: "e2e-grace",
+    name: "Grace",
+  });
+  await Promise.all([
+    waitEvent(alice, "name-set"),
+    waitEvent(bob, "name-set"),
+    waitEvent(carol, "name-set"),
+    waitEvent(dave, "name-set"),
+    waitEvent(eve, "name-set"),
+    waitEvent(frank, "name-set"),
+    waitEvent(grace, "name-set"),
+  ]);
+  console.log("  All clients connected + identified.");
+
+  // --- Alice creates a room ---
+  alice.emit("create-room");
+  const created = await waitEvent(alice, "room-created");
+  const codeA = created.code;
+  assert(/^[A-Z2-9]{4}$/.test(codeA), "create-room returns a 4-char code");
+
+  const room1Update = await waitEvent(alice, "room-update");
+  assert(room1Update.players.length === 1, "room has 1 player after create");
+
+  // --- Bob joins room 1 by code ---
+  bob.emit("join-room", { code: codeA });
+  await waitEvent(bob, "room-joined");
+  const seats1 = await waitEvent(
+    bob,
+    "room-update",
+    (d) => d.players.length === 2 && d.openSeats === 0,
+  );
+  assert(seats1.players.length === 2, "room seats exactly 2 players");
+  assert(
+    seats1.openSeats === 0,
+    "no open seats with 2 players seated",
+  );
+
+  // Try to join a bogus code -> room-error
+  carol.emit("join-room", { code: "ZZZZ" });
+  const err = await waitEvent(carol, "room-error");
+  assert(/not found/.test(err), "joining a bogus code errors");
+
+  // --- Tic-tac-toe in room 1 (Alice + Bob) ---
+  alice.emit("select-game", { game: "tictactoe" });
+  bob.emit("select-game", { game: "tictactoe" });
+  await Promise.all([
+    started(alice),
+    started(bob),
+  ]);
+  console.log("  Tic tac toe started in room 1.");
+
+  // Wait until one of them is told it's their turn
+  const race = await waitAny([
+    { sock: alice, events: ["set-turn"] },
+    { sock: bob, events: ["set-turn"] },
+  ]);
+  const whoStarts = race.sock;
+  const other = whoStarts === alice ? bob : alice;
+  const moverSymbol = race.m.data.symbol;
+
+  // --- Carol + Dave create a separate room and pick pizza ---
+  carol.emit("create-room");
+  const created2 = await waitEvent(carol, "room-created");
+  const codeB = created2.code;
+  assert(codeA !== codeB, "second room has a different code");
+
+  dave.emit("join-room", { code: codeB });
+  await waitEvent(dave, "room-joined");
+  await waitEvent(
+    dave,
+    "room-update",
+    (d) => d.players.length === 2,
+  );
+
+  carol.emit("select-game", { game: "pizza" });
+  dave.emit("select-game", { game: "pizza" });
+  await Promise.all([
+    waitEvent(carol, "pizza-start"),
+    waitEvent(dave, "pizza-start"),
+  ]);
+  console.log("  Pizza started in room 2.");
+
+  // Room 1 must not see room 2's pizza
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "pizza-start") &&
+      !bob._inbox.some((m) => m.event === "pizza-start"),
+    "pizza-start does not leak into room 1",
+  );
+
+  // --- A tic-tac-toe move only reaches the opponent in room 1 ---
+  whoStarts.emit("btn-pos", { index: 0, symbol: moverSymbol });
+  const click = await waitEvent(other, "click-btn");
+  assert(click.index === 0 && click.symbol === moverSymbol, "opponent in room sees the move");
+  await sleep(400);
+  assert(
+    !carol._inbox.some((m) => m.event === "click-btn") &&
+      !dave._inbox.some((m) => m.event === "click-btn"),
+    "tictactoe move does not leak into room 2",
+  );
+
+  // --- Pizza placement stays isolated to room 2 ---
+  const board = Array(20).fill(false);
+  board[0] = board[2] = board[4] = board[6] = board[8] = true;
+  carol.emit("pizza-submit", { board });
+  dave.emit("pizza-submit", { board });
+  await Promise.all([
+    waitEvent(carol, "pizza-battle-start"),
+    waitEvent(dave, "pizza-battle-start"),
+  ]);
+  console.log("  Pizza battle started in room 2.");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "pizza-battle-start") &&
+      !bob._inbox.some((m) => m.event === "pizza-battle-start"),
+    "pizza battle does not leak into room 1",
+  );
+
+  // --- Reversi starts independently in a third room (Eve + Frank) ---
+  eve.emit("create-room");
+  const created3 = await waitEvent(eve, "room-created");
+  const codeC = created3.code;
+  assert(codeC !== codeA && codeC !== codeB, "third room has a different code");
+
+  frank.emit("join-room", { code: codeC });
+  await waitEvent(frank, "room-joined");
+  await waitEvent(
+    frank,
+    "room-update",
+    (d) => d.players.length === 2,
+  );
+
+  eve.emit("select-game", { game: "reversi" });
+  frank.emit("select-game", { game: "reversi" });
+  const [eveStart, frankStart] = await Promise.all([
+    waitEvent(eve, "reversi-start"),
+    waitEvent(frank, "reversi-start"),
+  ]);
+  assert(
+    eveStart.board && eveStart.board.length === 64,
+    "reversi-start board has 64 cells",
+  );
+  assert(
+    eveStart.symbol !== frankStart.symbol,
+    "reversi players get different symbols",
+  );
+  assert(
+    ["b", "w"].includes(eveStart.symbol),
+    "reversi symbols are b/w",
+  );
+  console.log("  Reversi started in room 3.");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "reversi-start") &&
+      !bob._inbox.some((m) => m.event === "reversi-start") &&
+      !carol._inbox.some((m) => m.event === "reversi-start") &&
+      !dave._inbox.some((m) => m.event === "reversi-start"),
+    "reversi-start does not leak into rooms 1 and 2",
+  );
+
+  // --- Black plays a legal opening move (cell 19) which flips cell 27 ---
+  const black = eveStart.symbol === "b" ? eve : frank;
+  const white = black === eve ? frank : eve;
+  black.emit("reversi-move", { cell: 19 });
+  const state = await waitEvent(
+    white,
+    "reversi-state",
+    (d) => Array.isArray(d.board) && d.board[19] === "b",
+  );
+  assert(state.board[19] === "b", "white sees the black disc at cell 19");
+  assert(state.board[27] === "b", "cell 27 flipped to black after the move");
+  assert(state.currentSymbol === "w", "turn passes to white after a move");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "reversi-state") &&
+      !carol._inbox.some((m) => m.event === "reversi-state"),
+    "reversi-state does not leak across rooms",
+  );
+
+  // --- Leave room 2 (Dave) -> Carol notified, Dave back to lobby ---
+  dave.emit("leave-room");
+  await waitEvent(carol, "p2-left");
+  const carolView = await waitEvent(carol, "room-update", (d) => d.players.length < 2);
+  assert(
+    carolView.players.length === 1 && carolView.openSeats === 1,
+    "remaining player sees the vacated seat",
+  );
+  await waitEvent(dave, "room-left");
+  console.log("  Dave returned to the lobby.");
+
+  // --- Leave room 1 cleanup ---
+  alice.emit("leave-game");
+  alice.emit("leave-room");
+  await waitEvent(bob, "p2-left");
+  await waitEvent(alice, "room-left");
+
+  // --- Leave room 3 cleanup (Eve + Frank) ---
+  eve.emit("leave-game");
+  eve.emit("leave-room");
+  await waitEvent(frank, "p2-left");
+  await waitEvent(eve, "room-left");
+  frank.emit("leave-room");
+  await waitEvent(frank, "room-left");
+
+  // --- Rock Paper Scissors starts independently (Eve + Frank, 4th room) ---
+  eve.emit("create-room");
+  const createdRps = await waitEvent(eve, "room-created");
+  const codeRps = createdRps.code;
+  assert(
+    codeRps !== codeA && codeRps !== codeB && codeRps !== codeC,
+    "RPS room has a different code",
+  );
+
+  frank.emit("join-room", { code: codeRps });
+  await waitEvent(frank, "room-joined");
+  await waitEvent(frank, "room-update", (d) => d.players.length === 2);
+
+  eve.emit("select-game", { game: "rps" });
+  frank.emit("select-game", { game: "rps" });
+  const [eveRps, frankRps] = await Promise.all([
+    waitEvent(eve, "rps-start"),
+    waitEvent(frank, "rps-start"),
+  ]);
+  assert(
+    /frank/i.test(eveRps.opponentName) && /eve/i.test(frankRps.opponentName),
+    "rps-start names the opponent for each player",
+  );
+  console.log("  Rock Paper Scissors started in room " + codeRps + ".");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "rps-start") &&
+      !bob._inbox.some((m) => m.event === "rps-start") &&
+      !carol._inbox.some((m) => m.event === "rps-start") &&
+      !dave._inbox.some((m) => m.event === "rps-start"),
+    "rps-start does not leak into rooms 1 and 2",
+  );
+
+  // Eve throws rock twice, Frank throws scissors twice -> Eve wins 2-0.
+  eve.emit("rps-pick", { choice: "rock" });
+  frank.emit("rps-pick", { choice: "scissors" });
+  const [round1eve, round1frank] = await Promise.all([
+    waitEvent(eve, "rps-round"),
+    waitEvent(frank, "rps-round"),
+  ]);
+  assert(
+    round1eve.myPick === "rock" && round1frank.myPick === "scissors",
+    "each player's throw is reflected in rps-round",
+  );
+  assert(
+    round1eve.roundWinner === "me" && round1frank.roundWinner === "opp",
+    "rock beats scissors in round 1",
+  );
+  assert(
+    round1eve.myScore === 1 && round1eve.matchOver === false,
+    "score is 1-0 after round 1 and the match continues",
+  );
+
+  eve.emit("rps-pick", { choice: "rock" });
+  frank.emit("rps-pick", { choice: "scissors" });
+  const [round2eve, round2frank, overEve, overFrank] = await Promise.all([
+    waitEvent(eve, "rps-round", (d) => d.round === 2),
+    waitEvent(frank, "rps-round", (d) => d.round === 2),
+    waitEvent(eve, "rps-game-over"),
+    waitEvent(frank, "rps-game-over"),
+  ]);
+  assert(
+    round2eve.matchOver === true && round2frank.matchOver === true,
+    "round 2 marks the match as over",
+  );
+  assert(
+    overEve.won === true && overEve.myScore === 2 && overEve.oppScore === 0,
+    "Eve wins the best-of-3 match 2-0",
+  );
+  assert(
+    overFrank.won === false && overFrank.myScore === 0 && overFrank.oppScore === 2,
+    "Frank loses the best-of-3 match 0-2",
+  );
+  assert(
+    !alice._inbox.some((m) => m.event === "rps-game-over") &&
+      !carol._inbox.some((m) => m.event === "rps-game-over"),
+    "rps-game-over does not leak across rooms",
+  );
+
+  // Rematch: Eve votes, Frank gets the request, both agree -> fresh match.
+  eve.emit("rps-rematch");
+  await waitEvent(frank, "rps-rematch-request");
+  frank.emit("rps-rematch");
+  await Promise.all([
+    waitEvent(eve, "rps-start"),
+    waitEvent(frank, "rps-start"),
+  ]);
+  assert(true, "both players can rematch and start a fresh RPS match");
+  console.log("  Rock Paper Scissors rematch started.");
+
+  // Leave room 4 cleanup (Eve + Frank).
+  eve.emit("leave-game");
+  eve.emit("leave-room");
+  await waitEvent(frank, "p2-left");
+  await waitEvent(eve, "room-left");
+  frank.emit("leave-room");
+  await waitEvent(frank, "room-left");
+
+  // --- Connect 4 starts independently (Eve + Frank, 5th room) ---
+  eve.emit("create-room");
+  const createdC4 = await waitEvent(eve, "room-created");
+  const codeC4 = createdC4.code;
+  assert(
+    codeC4 !== codeA &&
+      codeC4 !== codeB &&
+      codeC4 !== codeC &&
+      codeC4 !== codeRps,
+    "Connect 4 room has a different code",
+  );
+
+  frank.emit("join-room", { code: codeC4 });
+  await waitEvent(frank, "room-joined");
+  await waitEvent(frank, "room-update", (d) => d.players.length === 2);
+
+  eve.emit("select-game", { game: "connect4" });
+  frank.emit("select-game", { game: "connect4" });
+  const [eveC4, frankC4] = await Promise.all([
+    waitEvent(eve, "connect4-start"),
+    waitEvent(frank, "connect4-start"),
+  ]);
+  assert(
+    eveC4.symbol !== frankC4.symbol,
+    "connect4 players get different colors",
+  );
+  assert(
+    ["red", "yellow"].includes(eveC4.symbol) &&
+      ["red", "yellow"].includes(frankC4.symbol),
+    "connect4 colors are red/yellow",
+  );
+  console.log("  Connect 4 started in room " + codeC4 + ".");
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "connect4-start") &&
+      !bob._inbox.some((m) => m.event === "connect4-start") &&
+      !carol._inbox.some((m) => m.event === "connect4-start") &&
+      !dave._inbox.some((m) => m.event === "connect4-start"),
+    "connect4-start does not leak into other rooms",
+  );
+
+  // Red wins by stacking column 1 vertically while yellow fills a far column.
+  const redSide = eveC4.symbol === "red" ? eve : frank;
+  const yellowSide = redSide === eve ? frank : eve;
+  const redColor = redSide === eve ? eveC4.symbol : frankC4.symbol;
+  const yellowColor = redColor === "red" ? "yellow" : "red";
+  const discCount = (board, col, color) => {
+    let n = 0;
+    for (let r = 0; r < 6; r++) if (board[r * 7 + col] === color) n++;
+    return n;
+  };
+  for (let i = 0; i < 4; i++) {
+    redSide.emit("connect4-drop", { col: 1 });
+    if (i === 3) break; // 4th red disc wins the game
+    await waitEvent(
+      redSide,
+      "connect4-state",
+      (d) => Array.isArray(d.board) && discCount(d.board, 1, redColor) === i + 1,
+    );
+    yellowSide.emit("connect4-drop", { col: 6 });
+    await waitEvent(
+      yellowSide,
+      "connect4-state",
+      (d) => Array.isArray(d.board) && discCount(d.board, 6, yellowColor) === i + 1,
+    );
+  }
+  const [redOver, yellowOver] = await Promise.all([
+    waitEvent(redSide, "connect4-game-over"),
+    waitEvent(yellowSide, "connect4-game-over"),
+  ]);
+  assert(
+    redOver.won === true && redOver.draw === false,
+    "red wins the Connect 4 game",
+  );
+  assert(
+    Array.isArray(redOver.winLine) && redOver.winLine.length === 4,
+    "winning line has 4 cells",
+  );
+  assert(
+    yellowOver.won === false && yellowOver.draw === false,
+    "yellow loses the Connect 4 game",
+  );
+  await sleep(400);
+  assert(
+    !alice._inbox.some((m) => m.event === "connect4-game-over") &&
+      !carol._inbox.some((m) => m.event === "connect4-game-over"),
+    "connect4-game-over does not leak across rooms",
+  );
+
+  // Rematch: vote from both sides -> fresh game with an empty board.
+  redSide.emit("connect4-rematch");
+  await waitEvent(yellowSide, "connect4-rematch-request");
+  yellowSide.emit("connect4-rematch");
+  const [redStart2, yellowStart2] = await Promise.all([
+    waitEvent(redSide, "connect4-start"),
+    waitEvent(yellowSide, "connect4-start"),
+  ]);
+  assert(true, "both players can rematch and start a fresh Connect 4 game");
+  const firstState = await waitEvent(
+    redSide,
+    "connect4-state",
+    (d) =>
+      Array.isArray(d.board) &&
+      d.board.length === 42 &&
+      d.board.every((x) => x === null),
+  );
+  assert(
+    firstState.board.every((x) => x === null) &&
+      redStart2.symbol === redColor &&
+      yellowStart2.symbol === yellowColor,
+    "rematched Connect 4 board starts empty",
+  );
+  assert(
+    redStart2.symbol === redOver.mySymbol &&
+      yellowStart2.symbol === yellowOver.mySymbol,
+    "rematch keeps each player's color",
+  );
+  console.log("  Connect 4 rematch started.");
+
+  // Leave room 5 cleanup (Eve + Frank).
+  eve.emit("leave-game");
+  eve.emit("leave-room");
+  await waitEvent(frank, "p2-left");
+  await waitEvent(eve, "room-left");
+  frank.emit("leave-room");
+  await waitEvent(frank, "room-left");
+
+  // --- AI bot: added as a second player and plays tic-tac-toe + reversi ---
+  grace.emit("create-room");
+  const created4 = await waitEvent(grace, "room-created");
+  const codeD = created4.code;
+  assert(
+    codeD !== codeA && codeD !== codeB && codeD !== codeC,
+    "AI room has a different code",
+  );
+
+  grace.emit("add-bot", { difficulty: "hard" });
+  const botJoin = await waitEvent(
+    grace,
+    "room-update",
+    (d) => d.players.length === 2,
+  );
+  const botPlayer = botJoin.players.find((p) => p.id !== grace.id);
+  assert(!!botPlayer && botPlayer.isBot === true, "AI bot is seated as a player");
+  assert(!!botPlayer && /bot/i.test(botPlayer.name), "AI bot has a bot name");
+  assert(
+    !!botPlayer && botPlayer.difficulty === "hard",
+    "AI bot difficulty is persisted on the player",
+  );
+  console.log("  AI bot joined room " + codeD + ".");
+
+  grace.emit("select-game", { game: "tictactoe" });
+  await waitEvent(grace, "player2");
+  // The random starter is either us or the bot; detect which happened via the
+  // first event that shows up instead of assuming a fixed symbol check (a
+  // player only ever receives their own "set-turn").
+  const firstEvent = await waitAny([
+    { sock: grace, events: ["click-btn", "set-turn"] },
+  ]);
+  if (firstEvent.m.event === "set-turn") {
+    // We open: take the centre.
+    grace.emit("btn-pos", { index: 4, symbol: firstEvent.m.data.symbol });
+  } else {
+    // Bot opened first; reply somewhere the bot did not just take so the
+    // move is always legal.
+    const myIdx = firstEvent.m.data.index === 4 ? 0 : 4;
+    const myTurn = await waitEvent(grace, "set-turn");
+    grace.emit("btn-pos", { index: myIdx, symbol: myTurn.symbol });
+  }
+  await waitEvent(grace, "click-btn");
+  assert(true, "AI bot plays tic-tac-toe");
+  console.log("  AI bot played a tic-tac-toe move.");
+
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "pizza" });
+  await waitEvent(grace, "pizza-start");
+  const gboard = Array(20).fill(false);
+  [0, 2, 4, 6, 8].forEach((c) => (gboard[c] = true));
+  grace.emit("pizza-submit", { board: gboard });
+  const battle = await waitEvent(grace, "pizza-battle-start");
+  if (battle.yourTurn) {
+    grace.emit("pizza-attack", { cell: 10 });
+  }
+  await waitEvent(
+    grace,
+    "pizza-attack-result",
+    (d) => d.youAttacked === false,
+  );
+  assert(true, "AI bot plays Find My Pizza");
+  console.log("  AI bot played a pizza attack.");
+
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "reversi" });
+  const graceRev = await waitEvent(grace, "reversi-start");
+  assert(
+    Array.isArray(graceRev.board) && graceRev.board.length === 64,
+    "reversi vs AI starts with a 64-cell board",
+  );
+  if (graceRev.symbol === "b") {
+    grace.emit("reversi-move", { cell: 19 });
+  }
+  await waitEvent(
+    grace,
+    "reversi-state",
+    (d) => d.currentSymbol === graceRev.symbol,
+  );
+  assert(true, "AI bot plays reversi");
+  console.log("  AI bot played a reversi move.");
+
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "rps" });
+  await waitEvent(grace, "rps-start");
+  grace.emit("rps-pick", { choice: "rock" });
+  const rpsRound = await waitEvent(
+    grace,
+    "rps-round",
+    (d) => d.myPick === "rock" && d.oppPick !== null,
+  );
+  assert(
+    ["rock", "paper", "scissors"].includes(rpsRound.oppPick),
+    "AI bot throws a Rock Paper Scissors hand",
+  );
+  assert(true, "AI bot plays Rock Paper Scissors");
+  console.log("  AI bot played a Rock Paper Scissors round.");
+
+  // Finish a full best-of-3 match vs the AI (easy bot throws at random, so the
+  // match always ends quickly) and verify the bot auto-accepts the rematch.
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "rps" });
+  await waitEvent(grace, "rps-start");
+  let botMatchOver = false;
+  for (let i = 0; i < 20 && !botMatchOver; i++) {
+    grace.emit("rps-pick", { choice: "rock" });
+    const rr = await waitEvent(
+      grace,
+      "rps-round",
+      (d) => d.myPick === "rock",
+    );
+    botMatchOver = rr.matchOver;
+  }
+  assert(botMatchOver, "AI bot plays a full best-of-3 RPS match");
+  const botOver = await waitEvent(grace, "rps-game-over");
+  assert(
+    botOver.myScore === 2 || botOver.oppScore === 2,
+    "RPS match vs AI reaches 2 round wins",
+  );
+  grace.emit("rps-rematch");
+  await waitEvent(grace, "rps-start");
+  assert(true, "AI bot auto-rematches Rock Paper Scissors");
+  console.log("  AI bot finished an RPS match and auto-rematched.");
+
+  // --- Connect 4 vs the AI bot ---
+  grace.emit("leave-game");
+  await sleep(300);
+  grace.emit("select-game", { game: "connect4" });
+  const graceC4 = await waitEvent(grace, "connect4-start");
+  assert(
+    ["red", "yellow"].includes(graceC4.symbol),
+    "Connect 4 vs AI hands out a red or yellow color",
+  );
+  if (graceC4.symbol === "red") {
+    grace.emit("connect4-drop", { col: 3 });
+  }
+  const botC4Symbol = graceC4.symbol === "red" ? "yellow" : "red";
+  await waitEvent(
+    grace,
+    "connect4-state",
+    (d) =>
+      Array.isArray(d.board) &&
+      d.board.some((x) => x === botC4Symbol),
+  );
+  assert(true, "AI bot plays a Connect 4 move");
+  console.log("  AI bot played a Connect 4 disc.");
+
+  // --- Leave the AI room -> the bot cleans itself up and the room closes ---
+  grace.emit("leave-room");
+  await waitEvent(grace, "room-left");
+  await sleep(600);
+  grace.emit("join-room", { code: codeD });
+  const goneD = await waitEvent(grace, "room-error");
+  assert(/not found/.test(goneD), "AI room is closed after everyone leaves");
+
+  // --- Spectator mode: join a full room and watch a live game ---
+  dave.emit("create-room");
+  const created5 = await waitEvent(dave, "room-created");
+  const codeE = created5.code;
+  eve.emit("join-room", { code: codeE });
+  await waitEvent(eve, "room-joined");
+  await waitEvent(eve, "room-update", (d) => d.players.length === 2);
+
+  dave.emit("select-game", { game: "tictactoe" });
+  eve.emit("select-game", { game: "tictactoe" });
+  await waitEvent(dave, "player2");
+
+  // The starting player is random; whoever it is puts a mark in the centre,
+  // then the other player replies, so the board has two moves before the
+  // spectator joins and the live snapshot below is meaningful.
+  const opener = await waitAny([
+    { sock: dave, events: ["set-turn"] },
+    { sock: eve, events: ["set-turn"] },
+  ]);
+  opener.sock.emit("btn-pos", { index: 4, symbol: opener.m.data.symbol });
+  const otherSock = opener.sock === dave ? eve : dave;
+  const otherTurn = await waitEvent(otherSock, "set-turn");
+  otherSock.emit("btn-pos", { index: 0, symbol: otherTurn.symbol });
+
+  // Grace joins the now-full room -> spectator, and instantly sees the board.
+  grace.emit("join-room", { code: codeE });
+  const specJoin = await waitEvent(grace, "room-joined");
+  assert(specJoin.spectator === true, "joining a full room makes you a spectator");
+  const specBoard1 = await waitEvent(grace, "spectate-tictactoe");
+  assert(
+    specBoard1.table[4] !== "" && specBoard1.gameOn === true,
+    "spectator receives the live board when joining",
+  );
+  console.log("  Grace is watching room " + codeE + ".");
+
+  // The next move reaches the spectator live (the opener's 2nd turn, in the
+  // bottom-right corner which is still free).
+  const turnThird = await waitEvent(opener.sock, "set-turn");
+  opener.sock.emit("btn-pos", { index: 8, symbol: turnThird.symbol });
+  await waitEvent(grace, "spectate-tictactoe", (d) => d.table[8] !== "");
+  assert(true, "spectator sees the next move live");
+  await sleep(300);
+  assert(
+    !grace._inbox.some(
+      (m) =>
+        m.event === "click-btn" ||
+        m.event === "set-turn" ||
+        m.event === "player2" ||
+        m.event === "p2-turn",
+    ),
+    "spectator does not receive private player events",
+  );
+  assert(
+    !dave._inbox.some((m) => m.event === "spectate-tictactoe") &&
+      !eve._inbox.some((m) => m.event === "spectate-tictactoe"),
+    "players do not receive spectator events",
+  );
+  console.log("  Spectator watched tic-tac-toe live.");
+
+  // When a seated player leaves, the spectator can take the freed seat.
+  dave.emit("leave-room");
+  await waitEvent(dave, "room-left");
+  await waitEvent(eve, "p2-left");
+  const specReset = await waitEvent(grace, "spectate-reset");
+  assert(true, "spectator gets reset when the game is cancelled");
+  await waitEvent(grace, "room-update", (d) => d.players.length === 1);
+  grace.emit("take-seat");
+  const seated = await waitEvent(
+    grace,
+    "room-update",
+    (d) => d.players.length === 2 && d.players.some((p) => p.id === grace.id),
+  );
+  assert(!!seated && seated.openSeats === 0, "spectator can take a freed seat");
+  console.log("  Spectator took a seat.");
+
+  // Cleanup: the room closes once both remaining players leave.
+  eve.emit("leave-room");
+  await waitEvent(grace, "p2-left");
+  grace.emit("leave-room");
+  await waitEvent(grace, "room-left");
+
+  // --- Empty room is closed once everyone leaves ---
+  bob.emit("leave-room");
+  await waitEvent(bob, "room-left");
+  bob.emit("join-room", { code: codeA });
+  const gone = await waitEvent(bob, "room-error");
+  assert(/not found/.test(gone), "empty room is closed after last player leaves");
+
+  console.log(failures === 0 ? "\nALL E2E TESTS PASSED" : `\n${failures} TEST(S) FAILED`);
+  if (statsBackup !== null) fs.writeFileSync(statsPath, statsBackup);
+  alice.close();
+  bob.close();
+  carol.close();
+  dave.close();
+  eve.close();
+  frank.close();
+  grace.close();
+  process.exit(failures === 0 ? 0 : 1);
+}
+
+run().catch((e) => {
+  console.error("E2E run failed:", e);
+  if (statsBackup !== null) fs.writeFileSync(statsPath, statsBackup);
+  process.exit(1);
+});

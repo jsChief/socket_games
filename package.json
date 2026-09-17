@@ -4,13 +4,16 @@
   "description": "websocket game project",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node tests/rooms.e2e.js",
+    "start": "node server.js"
   },
   "author": "James Ope",
   "license": "ISC",
   "dependencies": {
     "express": "^5.2.1",
     "nodemon": "^3.1.14",
-    "socket.io": "^4.8.3"
-  }
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {}
 }
