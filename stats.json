@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 45,
+  "gamesPlayed": 46,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -246,7 +246,7 @@
       "name": "AI Bot"
     },
     "26d1e6e5-5fa1-4f92-8b86-bf1642879dc5": {
-      "wins": 6,
+      "wins": 7,
       "losses": 7,
       "draws": 2,
       "name": "wp360"
@@ -351,6 +351,12 @@
       "wins": 1,
       "losses": 0,
       "draws": 1,
+      "name": "AI Bot"
+    },
+    "ai-bot-WABN": {
+      "wins": 0,
+      "losses": 1,
+      "draws": 0,
       "name": "AI Bot"
     }
   }

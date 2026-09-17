@@ -218,7 +218,7 @@ Vue.component("room-view", {
                               <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
                                     <div class="deco-circle -right-6 -top-10 size-32"></div>
                                     <div class="deco-circle -bottom-12 left-8 size-24"></div>
-                                    <div class="relative z-10 lg:flex items-center place-content-between gap-3">
+                                    <div class="relative z-10 md:flex items-center place-content-between gap-3">
                                           <div class="flex items-center gap-3">
                                                 <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">🎮</span>
                                           <div class="min-w-0 flex-1">

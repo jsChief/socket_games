@@ -1,7 +1,7 @@
-// Spectator view: a read-only window into a full room's game. Shows the two
-// players, whose turn it is, and the live board for Tic-Tac-Toe / Reversi /
-// Find My Pizza / Connect 4 (pizza hides the secret slice placements, only
-// showing probes).
+// Spectator view: a read-only window into a full room's game, styled like the
+// normal player game views. Shows the two players, whose turn it is, and the
+// live board for Tic-Tac-Toe / Reversi / Find My Pizza / Rock Paper Scissors /
+// Connect 4 (pizza hides the secret slice placements, only showing probes).
 var SPECTATE_TTT_LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
   [0, 3, 6], [1, 4, 7], [2, 5, 8],
@@ -117,49 +117,129 @@ Vue.component("spectator-view", {
                                     : this.game === "connect4"
                                           ? this.c4.symbols
                                           : null;
+                  const up = (s) => (s ? s.toUpperCase() : "");
+                  const counts = this.revCounts();
                   const turnIdx = this.currentTurnIndex;
                   const over = this.gameOverStatus;
-                  return [0, 1].map((i) => ({
-                        name:
-                              (names && names[i]) ||
-                              (this.seatedPlayers[i] && this.seatedPlayers[i].name) ||
-                              "Player " + (i + 1),
-                        symbol: (symbols && symbols[i]) || "",
-                        isTurn: !over && turnIdx === i,
-                  }));
+                  return [0, 1].map((i) => {
+                        let icon = "👁";
+                        let sub = "";
+                        if (this.game === "tictactoe") {
+                              icon = up(symbols[i]) || "?";
+                              sub = symbols[i] ? "Mark " + up(symbols[i]) : "";
+                        } else if (this.game === "reversi") {
+                              icon = symbols[i] === "w" ? "⚪" : "⚫";
+                              sub = counts[symbols[i]] + " discs";
+                        } else if (this.game === "pizza") {
+                              icon = "🍕";
+                              sub = (this.pizza.found[i] || 0) + "/5 slices found";
+                        } else if (this.game === "rps") {
+                              icon = i === 0 ? "✊" : "✌️";
+                              const w = this.rps.wins[i] || 0;
+                              sub = w + (w === 1 ? " round" : " rounds");
+                        } else if (this.game === "connect4") {
+                              icon = symbols[i] === "red" ? "🔴" : "🟡";
+                              sub = symbols[i] === "red" ? "Red" : "Yellow";
+                        }
+                        return {
+                              name:
+                                    (names && names[i]) ||
+                                    (this.seatedPlayers[i] &&
+                                          this.seatedPlayers[i].name) ||
+                                    "Player " + (i + 1),
+                              symbol: (symbols && symbols[i]) || "",
+                              icon,
+                              sub,
+                              isTurn: !over && turnIdx === i,
+                        };
+                  });
             },
             statusText() {
-                  const over = this.gameOverStatus;
                   if (this.game === "tictactoe") {
-                        if (over) return "Game over — Tic Tac Toe";
-                        const n = this.ttt.names[this.ttt.currentPlayer];
-                        return (n || "Player") + "'s turn";
+                        if (!this.ttt.gameOn) {
+                              if (this.winLine && this.winLine.length) {
+                                    const sym = this.ttt.virtualTable[this.winLine[0]];
+                                    const idx = this.ttt.symbols.indexOf(sym);
+                                    return (
+                                          (this.ttt.names[idx] || "Player") + " wins! 🎉"
+                                    );
+                              }
+                              if (this.ttt.table && this.ttt.table.some((c) => c))
+                                    return "It's a draw! 🤝";
+                              return "Waiting for a game to start...";
+                        }
+                        return (this.ttt.names[this.ttt.currentPlayer] || "Player") + "'s turn";
                   }
                   if (this.game === "reversi") {
-                        if (over) return "Game over — Reversi";
-                        const idx = this.rev.symbols.indexOf(this.rev.currentSymbol);
-                        return (this.rev.names[idx] || "Player") + "'s turn";
+                        if (this.rev.over) {
+                              const { b, w } = this.revCounts();
+                              if (b + w === 0) return "Waiting for a game to start...";
+                              if (b > w) {
+                                    const idx = this.rev.symbols.indexOf("b");
+                                    return (this.rev.names[idx] || "Player") + " wins! 🎉";
+                              }
+                              if (w > b) {
+                                    const idx = this.rev.symbols.indexOf("w");
+                                    return (this.rev.names[idx] || "Player") + " wins! 🎉";
+                              }
+                              return "It's a draw! 🤝";
+                        }
+                        const ridx = this.rev.symbols.indexOf(this.rev.currentSymbol);
+                        return (this.rev.names[ridx] || "Player") + "'s turn";
                   }
                   if (this.game === "pizza") {
                         if (this.pizza.phase === "placement") {
                               return "Players are placing their slices...";
                         }
-                        if (over) return "Game over — Find My Pizza";
+                        if (this.pizza.phase === "over") {
+                              if (this.pizza.found[0] >= 5)
+                                    return (
+                                          (this.pizza.names[0] || "Player") +
+                                          " found all the slices — wins! 🎉"
+                                    );
+                              if (this.pizza.found[1] >= 5)
+                                    return (
+                                          (this.pizza.names[1] || "Player") +
+                                          " found all the slices — wins! 🎉"
+                                    );
+                              return "Game over — Find My Pizza";
+                        }
                         return (
                               (this.pizza.names[this.pizza.turn] || "Player") +
                               " is hunting for slices 🍕"
                         );
                   }
                   if (this.game === "rps") {
-                        if (over) return "Game over — Rock Paper Scissors";
-                        return "Both players are throwing ✊✋✌";
+                        if (this.rps.result !== null) {
+                              return (
+                                    (this.rps.names[this.rps.result] || "Player") +
+                                    " wins the match! 🎉"
+                              );
+                        }
+                        return this.rps.picks[0] && this.rps.picks[1]
+                              ? "Both players are throwing ✊✋✌"
+                              : "Round " +
+                                      (this.rps.round || 1) +
+                                      " — both players are picking ✊✋✌";
                   }
                   if (this.game === "connect4") {
-                        if (over) return "Game over — Connect 4";
-                        const idx = this.c4.symbols.indexOf(this.c4.currentSymbol);
-                        return (this.c4.names[idx] || "Player") + "'s turn";
+                        if (this.c4.gameOver) {
+                              if (this.c4.winLine && this.c4.winLine.length) {
+                                    const sym = this.c4.board[this.c4.winLine[0]];
+                                    const idx = this.c4.symbols.indexOf(sym);
+                                    return (this.c4.names[idx] || "Player") + " wins! 🎉";
+                              }
+                              return "It's a draw! 🤝";
+                        }
+                        const cidx = this.c4.symbols.indexOf(this.c4.currentSymbol);
+                        return (this.c4.names[cidx] || "Player") + "'s turn";
                   }
                   return "Waiting for a game to start...";
+            },
+            statusColor() {
+                  if (this.gameOverStatus) return "text-slate-800";
+                  if (this.game) return "text-orange-600";
+                  return "text-slate-600";
             },
             canTakeSeat() {
                   return this.openSeats > 0 && !this.gameOverStatus && !this.game;
@@ -254,6 +334,23 @@ Vue.component("spectator-view", {
                   const icons = { rock: "✊", paper: "✋", scissors: "✌️" };
                   return icons[choice] || "❔";
             },
+            tttDisplay(s) {
+                  return s ? s.toUpperCase() : "";
+            },
+            spTTTCellClass(i) {
+                  let c = "bg-slate-900 ";
+                  if (this.ttt.table[i] === "x") c += "text-cyan-300 ";
+                  else if (this.ttt.table[i] === "o") c += "text-yellow-300 ";
+                  else c += "text-slate-800 ";
+                  if (this.winLine && this.winLine.indexOf(i) !== -1) c += "ttt-win-cell ";
+                  return c;
+            },
+            spPizzaCellClass(v) {
+                  let cls = "bg-white/60";
+                  if (v === true) cls = "bg-green-500/70 text-white pizza-hit";
+                  else if (v === false) cls = "bg-red-200 pizza-miss";
+                  return cls;
+            },
             handleReset() {
                   this.game = null;
                   this.winLine = null;
@@ -332,36 +429,56 @@ Vue.component("spectator-view", {
             },
       },
       template: `
-            <div class="overflow-y-scroll h-full no-scrollbar">
-                  <p class="text-3xl font-bold p-3 rounded-2xl bg-white/90 text-center shadow">
-                        👁 Spectator · Room {{ code }}
-                  </p>
-                  <p class="mt-1 text-center text-xs text-slate-600 bg-white/60 rounded-xl py-1">
-                        {{ spectatorCount }} watching · Tic Tac Toe / Pizza / Reversi / RPS / Connect 4 are live right here
-                  </p>
-
-                  <div class="mt-2 grid grid-cols-2 gap-2">
-                        <div v-for="(p, i) in displayPlayers" :key="i"
-                              :class="p.isTurn ? 'bg-orange-600 text-white ring-4 ring-yellow-300 animate-pulse' : 'bg-white/60 text-slate-900'"
-                              class="rounded-2xl px-3 py-2 text-center shadow-xl transition-all duration-300">
-                              <div class="text-sm font-bold truncate">{{ p.name }}</div>
-                              <div class="text-lg font-black">{{ p.symbol }}</div>
-                              <div class="text-xs font-bold mt-0.5">{{ p.isTurn ? '● playing' : 'watching' }}</div>
+            <div class="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
+                  <!-- Header -->
+                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-500 to-fuchsia-500 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="deco-circle -right-6 -top-10 size-32"></div>
+                        <div class="deco-circle -bottom-12 left-8 size-24"></div>
+                        <div class="relative z-10 flex items-center gap-8 lg:gap-3">
+                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">👁</span>
+                              <div class="lg:flex lg:w-full lg:place-content-between">
+                                    <div class="min-w-0 flex-1">
+                                          <h1 class="text-3xl font-black leading-none">Spectator</h1>
+                                          <p class="mt-1 text-sm font-bold text-white/85">Watching room {{ code }}</p>
+                                    </div>
+                                    <span class="btn-bubble mt-3 w-fit shrink-0 rounded-2xl bg-white/25 px-3 py-2 text-sm font-black lg:mt-0">
+                                          {{ spectatorCount }} watching
+                                    </span>
+                              </div>
                         </div>
                   </div>
 
-                  <div class="mt-2 rounded-2xl p-2 bg-white/80 shadow-xl text-center">
-                        <p class="text-sm font-bold"
-                              :class="gameOverStatus ? 'text-slate-700' : 'text-orange-600'">
-                              {{ statusText }}
-                        </p>
+                  <!-- Player cards -->
+                  <div class="grid grid-cols-2 gap-3">
+                        <div v-for="(p, i) in displayPlayers" :key="i"
+                              :class="p.isTurn ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white ring-4 ring-yellow-300 scale-[1.03] animate-pulse' : 'bg-white/60 text-slate-800'"
+                              class="relative flex items-center gap-3 overflow-hidden rounded-3xl px-3 py-2.5 shadow-[0_6px_0_rgba(0,0,0,0.14)] transition-all duration-300">
+                              <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-2xl font-black text-slate-700 shadow-lg">
+                                    {{ p.icon }}
+                              </div>
+                              <div class="min-w-0 flex-1 text-left">
+                                    <div class="text-xs font-black uppercase opacity-75">Player {{ i + 1 }}</div>
+                                    <div class="truncate text-base font-black">{{ p.name }}</div>
+                                    <div v-if="p.sub" class="truncate text-xs font-bold opacity-75">{{ p.sub }}</div>
+                              </div>
+                              <div v-if="!gameOverStatus" class="shrink-0 text-lg font-black"
+                                    :class="p.isTurn ? 'animate-pulse' : 'opacity-40'">
+                                    {{ p.isTurn ? '●' : '○' }}
+                              </div>
+                        </div>
+                  </div>
+
+                  <!-- Status pill -->
+                  <div class="mx-auto w-fit rounded-full bg-white/80 px-6 py-2 text-center shadow-[0_4px_0_rgba(0,0,0,0.12)]">
+                        <p class="text-sm font-black" :class="statusColor">{{ statusText }}</p>
+                        <p v-if="game" class="mt-0.5 text-xs font-bold text-slate-500">{{ spectatorCount }} watching</p>
                   </div>
 
                   <!-- No game yet -->
-                  <div v-if="!game" class="mt-4 rounded-2xl p-6 bg-white/60 text-center shadow-xl">
+                  <div v-if="!game" class="rounded-3xl bg-white/60 p-6 text-center shadow-[0_6px_0_rgba(0,0,0,0.14)]">
                         <div class="text-5xl">👀</div>
-                        <p class="mt-2 font-bold text-slate-700">Waiting for a game to start...</p>
-                        <p class="text-sm text-slate-500 mt-1 text-left">
+                        <p class="mt-2 font-black text-slate-700">Waiting for a game to start...</p>
+                        <p class="mt-1 text-sm text-slate-500">
                               You're watching <b>{{ displayPlayers[0].name }}</b> and
                               <b>{{ displayPlayers[1].name }}</b>. When they pick a game you'll see the
                               live board, moves and whose turn it is.
@@ -370,99 +487,97 @@ Vue.component("spectator-view", {
 
                   <!-- Tic Tac Toe board -->
                   <div v-if="game === 'tictactoe'"
-                        class="md:w-1/2 w-full mx-auto mt-3 rounded-2xl p-2 bg-slate-900 shadow-xl">
-                        <div class="grid grid-cols-3 gap-1 p-1">
+                        class="mx-auto w-full max-w-sm rounded-3xl bg-gradient-to-br from-rose-500 to-orange-400 p-2 shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="grid grid-cols-3 gap-2 rounded-2xl bg-white/20 p-2">
                               <div v-for="(cell, i) in ttt.table" :key="i"
-                                    class="aspect-square rounded-lg flex items-center justify-center text-3xl font-black"
-                                    :class="winLine && winLine.indexOf(i) !== -1 ? 'bg-yellow-400 text-slate-900 ttt-win-glow' : cell === 'x' ? 'bg-orange-500 text-white' : cell === 'o' ? 'bg-sky-500 text-white' : 'bg-white/10'">
-                                    <span v-if="cell !== ''" class="ttt-pop">{{ cell === 'x' ? '✕' : '◯' }}</span>
+                                    class="flex items-center justify-center h-16 md:h-20 text-3xl md:text-5xl font-black rounded-xl transition-all duration-150"
+                                    :class="spTTTCellClass(i)">
+                                    <span v-if="cell !== ''" class="ttt-pop">{{ tttDisplay(cell) }}</span>
                               </div>
                         </div>
                   </div>
 
                   <!-- Reversi board -->
                   <div v-if="game === 'reversi'"
-                        class="md:w-1/2 w-full mx-auto mt-3 rounded-2xl p-2 bg-emerald-900/80 shadow-xl">
+                        class="mx-auto w-full max-w-sm rounded-3xl bg-gradient-to-br from-emerald-700 to-emerald-900 p-2 shadow-[0_8px_0_rgba(0,0,0,0.18)]">
                         <div class="grid grid-cols-8 gap-1 p-1">
                               <div v-for="(cell, i) in rev.board" :key="i"
-                                    class="aspect-square rounded-lg flex items-center justify-center bg-emerald-900/50">
-                                    <div v-if="cell !== ''" class="w-4/5 h-4/5 rounded-full shadow-lg"
+                                    class="aspect-square rounded-lg flex items-center justify-center bg-emerald-900/60">
+                                    <div v-if="cell !== ''" class="w-3/4 h-3/4 rounded-full shadow-lg"
                                           :class="cell === 'b' ? 'bg-slate-900' : 'bg-white ring-2 ring-slate-300'"></div>
                               </div>
                         </div>
-                        <p class="text-center text-xs font-bold text-white/80 py-1">
+                        <p class="pt-1 text-center text-xs font-bold text-white/80">
                               {{ displayPlayers[0].name }} ⚫ {{ revCounts().b }} — {{ revCounts().w }} ⚪ {{ displayPlayers[1].name }}
                         </p>
                   </div>
 
-                  <!-- Find My Pizza: both probe grids (slices stay hidden) -->
-                  <div v-if="game === 'pizza'" class="md:w-1/2 w-full mx-auto mt-3">
-                        <div v-for="bi in [0, 1]" :key="bi"
-                              class="rounded-2xl p-2 bg-white/70 shadow-xl">
-                              <p class="text-xs font-bold mb-1 text-slate-700">
-                                    {{ pizza.names[bi] || 'Player ' + (bi + 1) }}'s board —
-                                    found {{ pizza.found[bi] }}/5
-                              </p>
-                              <div class="bg-slate-800 rounded-xl p-1 grid grid-cols-5 gap-1">
-                                    <div v-for="(v, c) in pizza.attacked[bi] || []" :key="c"
-                                          class="aspect-square rounded-md flex items-center justify-center text-sm font-black"
-                                          :class="v === true ? 'bg-yellow-400/30 text-yellow-200' : v === false ? 'bg-slate-700 text-slate-500' : 'bg-slate-900/40'">
-                                          {{ v === true ? '🍕' : v === false ? '·' : '' }}
+                  <!-- Find My Pizza: both probe boards (slices stay hidden) -->
+                  <div v-if="game === 'pizza'" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div v-for="bi in [0, 1]" :key="bi" class="flex flex-col items-center">
+                              <div class="w-full rounded-3xl bg-gradient-to-br p-2 shadow-[0_6px_0_rgba(0,0,0,0.16)] md:w-[72%]"
+                                    :class="bi === 0 ? 'from-rose-500 to-orange-500' : 'from-sky-500 to-blue-600'">
+                                    <p class="mb-2 text-center text-sm font-black text-white">
+                                          <span class="rounded-full bg-black/15 px-3 py-0.5 truncate inline-block max-w-full">
+                                                {{ pizza.names[bi] || 'Player ' + (bi + 1) }} — found {{ pizza.found[bi] || 0 }}/5
+                                          </span>
+                                    </p>
+                                    <div class="grid grid-cols-5 gap-1.5 rounded-2xl bg-white/20 p-1.5">
+                                          <div v-for="(v, c) in pizza.attacked[bi] || []" :key="c"
+                                                class="aspect-square flex items-center justify-center rounded-lg text-xl"
+                                                :class="spPizzaCellClass(v)">
+                                                {{ v === true ? '🍕' : v === false ? '❌' : '' }}
+                                          </div>
                                     </div>
                               </div>
                         </div>
-                        <p class="text-center text-[11px] text-slate-500 mt-1">
-                              🍕 = found slice · · = empty probe · blank = not yet probed
+                        <p class="col-span-full text-center text-xs font-bold text-slate-500">
+                              🍕 = found slice · ❌ = empty probe · blank = not yet probed
                         </p>
                   </div>
 
                   <!-- Rock Paper Scissors: live hands + score -->
-                  <div v-if="game === 'rps'" class="md:w-2/3 w-full mx-auto mt-3">
-                        <div class="rounded-2xl p-3 bg-white/70 shadow-xl">
-                              <div class="grid grid-cols-2 gap-2 text-center items-center">
-                                    <div>
-                                          <p class="text-xs font-bold text-slate-600 truncate">
-                                                {{ rps.names[0] || 'Player 1' }}
-                                          </p>
-                                          <div class="text-5xl" :class="rps.picks[0] ? 'rps-pop' : 'opacity-40'">{{ rpsIcon(rps.picks[0]) }}</div>
-                                          <div class="text-2xl font-black text-slate-800">{{ rps.wins[0] }}</div>
+                  <div v-if="game === 'rps'">
+                        <div class="grid grid-cols-2 gap-3">
+                              <div v-for="bi in [0, 1]" :key="bi"
+                                    class="rounded-3xl bg-white/60 p-3 text-center shadow-[0_6px_0_rgba(0,0,0,0.14)]">
+                                    <p class="mb-1 text-xs font-black text-slate-600 truncate">
+                                          {{ rps.names[bi] || 'Player ' + (bi + 1) }}'s hand
+                                    </p>
+                                    <div class="text-5xl" :class="rps.picks[bi] ? 'rps-pop' : 'opacity-40'">
+                                          {{ rpsIcon(rps.picks[bi]) }}
                                     </div>
-                                    <div>
-                                          <p class="text-xs font-bold text-slate-600 truncate">
-                                                {{ rps.names[1] || 'Player 2' }}
-                                          </p>
-                                          <div class="text-5xl" :class="rps.picks[1] ? 'rps-pop' : 'opacity-40'">{{ rpsIcon(rps.picks[1]) }}</div>
-                                          <div class="text-2xl font-black text-slate-800">{{ rps.wins[1] }}</div>
-                                    </div>
+                                    <div class="mt-1 text-2xl font-black text-slate-800">{{ rps.wins[bi] || 0 }}</div>
                               </div>
-                              <p class="text-center text-xs text-slate-500 mt-2">
-                                    Round {{ rps.round }} · first to 2 round wins takes the match
-                              </p>
+                        </div>
+                        <div class="mx-auto w-fit mt-3 rounded-full bg-white/50 px-5 py-1 text-center text-xs font-bold text-slate-600 shadow-sm">
+                              Round {{ rps.round }} — first to 2 round wins takes the match
                         </div>
                   </div>
 
                   <!-- Connect 4 board -->
                   <div v-if="game === 'connect4'"
-                        class="md:w-2/3 w-full max-w-lg mx-auto mt-3 rounded-3xl p-2 bg-sky-700/90 shadow-2xl">
-                        <div class="bg-sky-800/80 rounded-2xl p-2 grid grid-cols-7 gap-1">
+                        class="mx-auto w-full max-w-md rounded-3xl bg-gradient-to-b from-sky-700 to-sky-950 p-2 shadow-[0_8px_0_rgba(0,0,0,0.25)]">
+                        <div class="grid grid-cols-7 gap-1 rounded-2xl bg-sky-900/50 p-1">
                               <div v-for="(cell, i) in c4.board" :key="i"
                                     class="aspect-square rounded-full bg-sky-950/60 flex items-center justify-center p-[6%]">
                                     <div v-if="cell !== null" :class="c4DiscClass(cell, i)"></div>
                               </div>
                         </div>
-                        <p class="text-center text-xs font-bold text-white/80 py-1">
+                        <p class="pt-1 text-center text-xs font-bold text-white/80">
                               {{ displayPlayers[0].name }} 🔴 vs 🟡 {{ displayPlayers[1].name }}
                         </p>
                   </div>
 
-                  <div class="mt-3 flex gap-2 justify-center pb-4">
+                  <!-- Action buttons -->
+                  <div class="flex justify-center gap-3 pt-1 pb-4">
                         <button v-if="canTakeSeat" @click="takeSeat"
-                              class="rounded-2xl px-4 py-1.5 bg-green-600 text-white text-sm font-bold shadow-xl hover:scale-105 active:scale-95 transition-all">
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 px-5 py-2.5 text-sm font-black text-white">
                               🪑 Take a seat
                         </button>
                         <button @click="leaveRoom"
-                              class="rounded-2xl px-4 py-1.5 bg-red-600 text-white text-sm font-bold shadow-xl">
-                              Leave room
+                              class="btn-bubble rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 px-5 py-2.5 text-sm font-black text-white">
+                              🏠 Leave room
                         </button>
                   </div>
             </div>
