@@ -35,6 +35,12 @@
       "salt": "b57096a9bb36c620c17a5e9402f7a38e",
       "hash": "2b98cb1a011bccf3f79c047c46d66ac1a7ed3347d7c8df9e3ef091c15c5022529fd2400f863955ca1ab24a882b8c6aa661bef430368b6721ec32c498ea67a8a1",
       "persistentUserId": "26d1e6e5-5fa1-4f92-8b86-bf1642879dc5"
+    },
+    "cole_one2": {
+      "username": "Cole_one2",
+      "salt": "273c2094a6f58f50f3166fc28494a871",
+      "hash": "f0fc8695c979d4de98e5854336ba31cc8b9d63345a8fd7bb704e0f40900f3ef6ef8f5ccdab708b6e197d135512e6000745e8125629b78e4777b2f5166ff5ae4d",
+      "persistentUserId": "d0ebdcd0-5c75-4ffe-864a-5e0e22e12b46"
     }
   },
   "tokens": {
@@ -46,6 +52,7 @@
     "22b6603c24db3c72cc4edad38726d765c571e3b21d0d1cf3ca38015df91a99d4": "dark-tayo",
     "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david",
     "a5ee2fac0f4706b93eac7ebc09cf442899acc632f2eb79e7c8176d3e2696f7fb": "james o",
-    "62765eb330b7367ebdce0f19e302f2a16b297aa3b3a332ded9ca58bdf999ddd9": "wp360"
+    "62765eb330b7367ebdce0f19e302f2a16b297aa3b3a332ded9ca58bdf999ddd9": "wp360",
+    "2b7b1c45929e114bde6b0bf4107ce551a32b9c1b1b4b83c24efb2ca58ec8c448": "cole_one2"
   }
 }

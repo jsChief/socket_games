@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 37,
+  "gamesPlayed": 45,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -246,9 +246,9 @@
       "name": "AI Bot"
     },
     "26d1e6e5-5fa1-4f92-8b86-bf1642879dc5": {
-      "wins": 4,
-      "losses": 3,
-      "draws": 0,
+      "wins": 6,
+      "losses": 7,
+      "draws": 2,
       "name": "wp360"
     },
     "ai-bot-RDTC": {
@@ -321,6 +321,36 @@
       "wins": 0,
       "losses": 0,
       "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-HEFK": {
+      "wins": 0,
+      "losses": 2,
+      "draws": 1,
+      "name": "AI Bot"
+    },
+    "ai-bot-V72F": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "d0ebdcd0-5c75-4ffe-864a-5e0e22e12b46": {
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "name": "Cole_one2"
+    },
+    "ai-bot-46C6": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-Q575": {
+      "wins": 1,
+      "losses": 0,
+      "draws": 1,
       "name": "AI Bot"
     }
   }

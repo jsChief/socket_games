@@ -428,10 +428,10 @@ Vue.component("pizza-view", {
                               class="btn-bubble rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 px-5 py-2.5 text-sm font-black text-white">
                               🏠 Leave game
                         </button>
-                        <button @click="leaveRoom"
+                        <!-- <button @click="leaveRoom"
                               class="btn-bubble rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 px-5 py-2.5 text-sm font-black text-white">
                               Leave room
-                        </button>
+                        </button> -->
                   </div>
 
                   <!-- Opponent rematch pill -->
