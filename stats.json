@@ -382,6 +382,12 @@
       "losses": 0,
       "draws": 0,
       "name": "AI Bot"
+    },
+    "ai-bot-5J46": {
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "name": "AI Bot"
     }
   }
 }
