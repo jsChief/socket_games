@@ -4,9 +4,6 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const crypto = require("crypto");
-const { promisify } = require("util");
-const scrypt = promisify(crypto.scrypt);
-const randomBytes = promisify(crypto.randomBytes);
 
 const createRooms = require("./lib/rooms");
 const createTicTacToeGame = require("./lib/tictactoe");
@@ -15,6 +12,13 @@ const createReversi = require("./lib/reversi");
 const createRps = require("./lib/rps");
 const createConnect4 = require("./lib/connect4");
 const createBot = require("./lib/bot");
+const createAdmin = require("./lib/admin");
+const avatars = require("./lib/avatars");
+const {
+  hashPassword,
+  verifyPassword,
+  generateToken,
+} = require("./lib/passwords");
 
 const app = express();
 // Create the unified HTTP server
@@ -37,6 +41,12 @@ const io = new Server(server, {
 // 1. Serve the frontend files statically
 // (Point this to your web page build folder, e.g., 'public' or 'dist')
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json()); // JSON body parsing for the /admin/api endpoints
+
+// 2. Admin panel page (separate from the games page)
+app.get(["/admin", "/admin/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
 
 // `players` holds the currently active (connected) players for this server run.
 // Each player refers into a room via `roomCode`. Seating happens explicitly,
@@ -124,24 +134,6 @@ const saveAccounts = () => {
     console.error("Error saving accounts to file:", e);
   }
 };
-
-// Hash a password with a random salt using scrypt.
-async function hashPassword(password) {
-  const salt = (await randomBytes(16)).toString("hex");
-  const hash = (await scrypt(password, salt, 64)).toString("hex");
-  return { salt, hash };
-}
-
-// Verify a plaintext password against the stored salt + hash.
-async function verifyPassword(password, salt, hash) {
-  const candidate = (await scrypt(password, salt, 64)).toString("hex");
-  return candidate === hash;
-}
-
-// Generate a random login token.
-function generateToken() {
-  return crypto.randomBytes(32).toString("hex");
-}
 
 // Load data when the server starts (before the game modules capture `stats`)
 loadStats();
@@ -483,6 +475,9 @@ function getOnlinePlayers() {
       name: p.name,
       game: p.game,
       roomCode: p.roomCode,
+      avatarUrl: accounts.accounts[(p.name || "").toLowerCase()]
+        ? avatars.ensureAvatar(p.name)
+        : null,
     }));
 }
 
@@ -507,6 +502,129 @@ function maybeStartSelectedGame(room) {
   }
 }
 
+// -------- Admin panel server-side actions --------
+// The admin module (lib/admin.js) handles auth + the REST API but outsources
+// destructive actions here so room/game cleanup stays in one place.
+
+// Close a room and send every seated player + spectator back to the lobby.
+function adminCloseRoom(code, reason) {
+  const room = rooms[code];
+  if (!room) return { ok: false, error: "Room not found." };
+  const message = reason || "Room " + code + " was closed by an admin.";
+  pizza.reset(room);
+  reversi.reset(room);
+  rps.reset(room);
+  connect4.reset(room);
+  room.resetRequest = false;
+  for (const p of room.players) {
+    if (p && p.id) {
+      p.roomCode = null;
+      p.game = null;
+      p.symbol = null;
+      io.to(p.id).emit("admin-room-closed", { code, reason: message });
+    }
+  }
+  for (const sp of room.spectators) {
+    if (sp && sp.id) {
+      sp.roomCode = null;
+      io.to(sp.id).emit("admin-room-closed", { code, reason: message });
+    }
+  }
+  delete rooms[code];
+  io.emit("online-players", getOnlinePlayers());
+  console.log("[admin] closed room " + code);
+  return { ok: true, code };
+}
+
+// Kick an online player back to the lobby (keeps their socket connected).
+function adminKickPlayer(socketId, reason) {
+  const player = players.find((p) => p.id === socketId);
+  if (!player) {
+    return { ok: false, error: "Player not found (they may have disconnected)." };
+  }
+  const message = reason || "You were removed by an admin.";
+  const room = player.roomCode ? rooms[player.roomCode] : null;
+  if (room) {
+    const index = roomIndexOf(room, socketId);
+    if (index !== -1) {
+      pizza.reset(room);
+      reversi.reset(room);
+      rps.reset(room);
+      connect4.reset(room);
+      room.resetRequest = false;
+      if (room.gameOn) {
+        room.gameOn = false;
+        room.table = tictactoe.emptyTable();
+        room.virtualTable = tictactoe.emptyVirtualTable();
+      }
+      player.roomCode = null;
+      player.game = null;
+      player.symbol = null;
+      room.players[index] = null;
+      const other = room.players.find((p) => p && p.id !== socketId);
+      if (other) {
+        io.to(other.id).emit("p2-left", player.name);
+        io.to(other.id).emit("clear-table", "");
+      }
+      toSpectators(room, "spectate-reset");
+      if (!room.players.some(Boolean)) {
+        closeRoom(room);
+      } else {
+        toRoom(room, "room-update", getRoomView(room));
+      }
+    } else {
+      const si = room.spectators.indexOf(player);
+      if (si !== -1) room.spectators.splice(si, 1);
+      player.roomCode = null;
+      if (!room.players.some(Boolean)) {
+        closeRoom(room);
+      } else {
+        toRoom(room, "room-update", getRoomView(room));
+      }
+    }
+  }
+  io.to(socketId).emit("admin-kicked", { reason: message, name: player.name });
+  io.emit("online-players", getOnlinePlayers());
+  console.log("[admin] kicked " + player.name);
+  return { ok: true, name: player.name };
+}
+
+// Send a private message that surfaces as a prominent toast on the player's page.
+function adminMessagePlayer(socketId, message) {
+  const player = players.find((p) => p.id === socketId);
+  if (!player) {
+    return { ok: false, error: "Player not found (they may have disconnected)." };
+  }
+  const text = String(message || "").trim();
+  if (!text) return { ok: false, error: "Message cannot be empty." };
+  io.to(socketId).emit("admin-message", { text, at: Date.now() });
+  console.log("[admin] messaged " + player.name + ": " + text);
+  return { ok: true, name: player.name };
+}
+
+// Mount the admin panel's JSON API. Destructive actions go through the ops
+// above so rooms and game state are cleaned up exactly like a normal leave.
+const admin = createAdmin({
+  io,
+  players,
+  rooms,
+  accounts,
+  saveAccounts,
+  stats,
+  saveStats,
+  hashPassword,
+  verifyPassword,
+  makeToken: generateToken,
+  getOnlinePlayers,
+  avatars,
+  ops: {
+    adminCloseRoom,
+    adminKickPlayer,
+    adminMessagePlayer,
+  },
+});
+app.use("/admin/api", admin.router);
+
 io.on("connection", (socket) => {
   socket.emit("join-message", "connected to server ✅");
   // The client sends its stored login token via 'auth-connect'
@@ -516,6 +634,12 @@ io.on("connection", (socket) => {
     "Please wait while we set things up, or use '/name <your name>' if you are new!",
   );
   console.log(socket.id);
+
+  // Late joiners still see the most recent admin announcement, if any.
+  const lastAnnouncement = admin.getLastAnnouncement();
+  if (lastAnnouncement) {
+    socket.emit("admin-announce", lastAnnouncement);
+  }
 
   socket.on("player-initial-connect", (data) => {
     connectPlayer(socket, data);
@@ -530,6 +654,7 @@ io.on("connection", (socket) => {
     const key = token && accounts.tokens[token];
     if (key && accounts.accounts[key]) {
       const acc = accounts.accounts[key];
+      avatars.ensureAvatar(acc.username);
       socket.emit("auth-success", {
         token,
         username: acc.username,
@@ -571,6 +696,7 @@ io.on("connection", (socket) => {
     const token = generateToken();
     accounts.tokens[token] = key;
     saveAccounts();
+    avatars.ensureAvatar(username);
 
     socket.emit("auth-success", { token, username, persistentUserId });
     connectPlayer(socket, { persistentUserId, name: username });
@@ -589,6 +715,7 @@ io.on("connection", (socket) => {
     const token = generateToken();
     accounts.tokens[token] = key;
     saveAccounts();
+    avatars.ensureAvatar(acc.username);
 
     socket.emit("auth-success", {
       token,

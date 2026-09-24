@@ -224,3 +224,68 @@ Best-of-3 classic showdown, selectable from the room game cards.
 > last throw). E2E coverage: RPS starts in its own room, rock beats scissors
 > with correct 2-0 match resolution for both players, rematch works, RPS events
 > never leak across rooms, and the bot throws a valid hand.
+
+## 11. Admin Panel 🛡
+
+A separate page at `/admin` for the server owner, backed by its own REST API
+(`/admin/api`, new `lib/admin.js`, management CLI `lib/admin-cli.js`).
+
+> **Status:** DONE.
+>
+> - **Separate admin login.** Admins are stored in `admins.json` (gitignored),
+>   hashed with the same scrypt as player accounts. Bootstrap the first admin
+>   with `node lib/admin-cli.js add <username> [password]` (or the
+>   `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars). Admin sessions use Bearer
+>   tokens; all `/admin/api` routes require one except login and
+>   `/reset-code/use`.
+> - **Dashboard.** Live counts (online players, AI bots, rooms, accounts, games
+>   played), server uptime / Node / platform / memory, the most recent admin
+>   actions, and a top-5 leaderboard snapshot.
+> - **Live view.** Online players (kick back to lobby, send a private message)
+>   and active rooms (who's seated, free seats, spectators, which game is
+>   running) with close-room — all auto-refreshing.
+> - **User management.** List every registered account with session count and
+>   W/L/D record; reset a password (revokes their remember-me tokens), delete an
+>   account (kicks them if online), and issue a short-lived **one-time password
+>   reset code** (single-use, 15 min) for the "forgot password" flow.
+> - **Admin management.** Root admins can add/remove other admins or reset their
+>   passwords from the panel.
+> - **Stats.** Full sortable/searchable leaderboard (wins, win rate, games).
+> - **Broadcast.** Send an announcement every online player sees as a toast; the
+>   most recent one is replayed to players who join later. New socket events on
+>   the games page: `admin-announce`, `admin-message`, `admin-room-closed`,
+>   `admin-kicked` (see `public/main.js`).
+> - **Logs.** In-memory ring buffer of server console output with level + text
+>   filtering, plus an admin-action audit trail.
+>
+> Leftovers / follow-ups: the player-side "forgot password" dialog that redeems
+> a reset code (the redeem endpoint `POST /admin/api/reset-code/use` is already
+> wired), login rate-limits are in-memory per-IP, and rooms/announcements are
+> still live data only (rebuilt from the game modules on restart).
+
+## 12. Pixel-Art Profile Avatars 🎨
+
+Every account gets a generated pixel-art profile picture.
+
+> **Status:** DONE.
+>
+> - A dependency-free generator, `lib/avatars.js`, hashes the username and
+>   produces a mirrored identicon-style sprite (8×8 grid, 3 tones from the name
+>   hue, scaled 8×) encoded as a real PNG via a tiny built-in encoder (Node's
+>   `zlib` for compression + a hand-rolled CRC32 — no npm packages added).
+> - **Storage:** the PNGs are written to `public/avatars/<slug>.png` (gitignored)
+>   and served straight from the existing static folder, so they persist across
+>   restarts and the browser caches them. Missing files are re-derived
+>   deterministically, so nothing is ever lost.
+> - Avatars are generated on register / login / reconnect and backfilled when
+>   the admin Users tab loads. Deleting an account also deletes its avatar file.
+> - Shown at the top of the games lobby (your avatar + every online player's)
+>   and throughout the admin panel: Live players list, active-room chips
+>   (seated players + spectators), the Dashboard and full Stats leaderboards,
+>   and thumbnails in the Users table. Toggling aspects: none — the image is
+>   tied to the username; regenerating would produce the same picture (by
+>   design, so it stays a stable profile identity).
+>
+> Follow-up ideas (not started): let users re-roll to a **random** avatar that is
+> stored on the account (would need an `avatarSeed` field in `accounts.json`),
+> larger canvas options, or a download button in the admin panel.
