@@ -8,8 +8,10 @@
 
 // ---- Identicon renderer (must mirror lib/avatars.js) ----
 
-var __GRID = 8;
-var __HALF = 4;
+// var __GRID = 8;
+// var __HALF = 4;
+var __GRID = 16;
+var __HALF = __GRID / 2;
 
 function __fnv1a(str) {
   var hash = 0x811c9dc5;
@@ -35,6 +37,13 @@ function __seedRng(seedStr) {
   return __mulberry32(__fnv1a(seedStr));
 }
 
+function sanitizeColor(value) {
+  if (MONO_COLORS.indexOf(value) !== -1) return value;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return ((n % 360) + 360) % 360;
+}
+
 function __hslToRgb(h, s, l) {
   h = ((h % 1) + 1) % 1;
   var c = (1 - Math.abs(2 * l - 1)) * s;
@@ -58,6 +67,41 @@ function __hslToRgb(h, s, l) {
 
 // Resolve the 4-color palette from a color (hue degrees or mono "black"/"white").
 // Mirrors lib/avatars.js paletteFor().
+// function __paletteFor(color) {
+//   if (color === "black") {
+//     return {
+//       fg: [23, 26, 34],
+//       dark: [7, 8, 12],
+//       hl: [132, 138, 154],
+//       bg: [242, 243, 247],
+//     };
+//   }
+//   if (color === "white") {
+//     return {
+//       fg: [247, 248, 250],
+//       dark: [196, 200, 210],
+//       hl: [255, 255, 255],
+//       bg: [104, 109, 124],
+//     };
+//   }
+//   var hueFrac = (((color % 360) + 360) % 360) / 360;
+//   return {
+//     fg: __hslToRgb(hueFrac, 0.62, 0.46),
+//     dark: __hslToRgb((hueFrac + 0.015) % 1, 0.55, 0.28),
+//     hl: __hslToRgb((hueFrac + 0.02) % 1, 0.55, 0.68),
+//     bg: __hslToRgb(hueFrac, 0.45, 0.93),
+//   };
+// }
+// Named palettes supported in addition to single hue angles
+const MONO_COLORS = [
+  "black",
+  "white",
+  "cyberpunk",
+  "sunset",
+  "neon",
+  "emerald",
+];
+
 function __paletteFor(color) {
   if (color === "black") {
     return {
@@ -75,7 +119,41 @@ function __paletteFor(color) {
       bg: [104, 109, 124],
     };
   }
-  var hueFrac = (((color % 360) + 360) % 360) / 360;
+  if (color === "cyberpunk") {
+    return {
+      fg: [255, 0, 127],
+      dark: [40, 10, 60],
+      hl: [0, 240, 255],
+      bg: [15, 10, 25],
+    };
+  }
+  if (color === "sunset") {
+    return {
+      fg: [255, 107, 107],
+      dark: [78, 205, 196],
+      hl: [255, 230, 109],
+      bg: [44, 62, 80],
+    };
+  }
+  if (color === "neon") {
+    return {
+      fg: [57, 255, 20],
+      dark: [20, 20, 20],
+      hl: [255, 0, 255],
+      bg: [5, 5, 5],
+    };
+  }
+  if (color === "emerald") {
+    return {
+      fg: [46, 204, 113],
+      dark: [22, 160, 133],
+      hl: [241, 196, 15],
+      bg: [236, 240, 241],
+    };
+  }
+
+  const hue = sanitizeColor(color);
+  const hueFrac = hue / 360;
   return {
     fg: __hslToRgb(hueFrac, 0.62, 0.46),
     dark: __hslToRgb((hueFrac + 0.015) % 1, 0.55, 0.28),
@@ -98,6 +176,68 @@ function __slugify(name) {
 function __buildIdenticon(seedStr, hue, pattern) {
   var rand = __seedRng(seedStr);
   function keyAt(x, y) {
+    if (pattern === "circle") {
+  const dx = x - (__GRID - 1) / 2;
+  const dy = y - (__GRID - 1) / 2;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const r = Math.floor(dist);
+
+  return r === 0 || r === 1
+    ? "fg"
+    : r === 2 || r === 3
+      ? "dark"
+      : r === 4 || r === 5
+        ? "hl"
+        : r === 6
+          ? "fg"
+          : null;
+}
+    if (pattern === "face") {
+      // Head shape background
+      //if (y < 2 || y > 14) return null;
+
+      // Eyes (2x2 pixel eyes with light highlight reflections)
+      if ((y === 6 || y === 7) && (x === 3 || x === 4)) return "dark";
+      if (y === 6 && x === 3) return "hl"; // Sparkle in eye
+
+      // Blush cheeks
+      if (y === 9 && (x === 2 || x === 3)) return "hl";
+
+      // Smile / Mouth
+      if (y === 11 && x === 5) return "dark";
+      if (y === 12 && (x === 5 || x === 6 || x === 7)) return "dark";
+
+      // Main head fill
+      return "fg";
+    }
+
+    // New Pattern: Diamond
+    if (pattern === "diamond") {
+      const dist = Math.abs(x - 7.5) + Math.abs(y - 7.5);
+      if (dist < 4) return "fg";
+      if (dist < 7) return "hl";
+      if (dist < 10) return "dark";
+      return null;
+    }
+
+    // New Pattern: Grid Matrix
+    if (pattern === "grid") {
+      if (x % 3 === 0 || y % 3 === 0) return "fg";
+      const v = rand();
+      return v < 0.4 ? "hl" : "dark";
+    }
+
+    // New Pattern: Heart
+    if (pattern === "heart") {
+      // Basic heart curve check on 16x16
+      const nx = (x - 7.5) / 6;
+      const ny = (y - 6.5) / 6;
+      const a = nx * nx + ny * ny - 1;
+      if (a * a * a - nx * nx * ny * ny * ny <= 0) {
+        return (x + y) % 2 === 0 ? "fg" : "hl";
+      }
+      return null;
+    }
     if (pattern === "checker") {
       if ((x + y) % 2 === 0) {
         var v = rand();
@@ -122,7 +262,17 @@ function __buildIdenticon(seedStr, hue, pattern) {
           Math.abs(y - (__GRID - 1) / 2),
         ),
       );
-      return k === 0 ? "fg" : k === 1 ? "dark" : k === 2 ? "hl" : null;
+      return k === 0
+        ? "fg"
+        : k === 1
+          ? "dark"
+          : k === 2
+            ? "hl"
+            : k === 3
+              ? "fg"
+              : k === 4
+                ? "dark"
+                : null;
     }
     if (pattern === "cross") {
       var center =
@@ -212,8 +362,12 @@ var __avatarPatterns = [
   { id: "stripes", label: "Stripes" },
   { id: "rings", label: "Rings" },
   { id: "dots", label: "Dots" },
-  { id: "cross", label: "Cross" },
+  //{ id: "cross", label: "Cross" },
   { id: "face", label: "Face" },
+  { id: "diamond", label: "Diamond" },
+  //{ id: "grid", label: "Grid" },
+  //{ id: "heart", label: "Heart" },
+  { id: "circle", label: "Circle" },
 ];
 
 var __avatarSwatches = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
@@ -280,8 +434,7 @@ Vue.component("avatar-dialog", {
           : current && typeof current.hue === "number"
             ? current.hue
             : 200;
-      __avatarPattern =
-        current && current.pattern ? current.pattern : "random";
+      __avatarPattern = current && current.pattern ? current.pattern : "random";
       this.open = true;
     },
     close() {
@@ -331,8 +484,9 @@ Vue.component("avatar-dialog", {
             : "white"
           : Math.floor(Math.random() * 360);
       this.pattern =
-        __avatarPatterns[Math.floor(Math.random() * __avatarPatterns.length)]
-          .id;
+        __avatarPatterns[
+          Math.floor(Math.random() * __avatarPatterns.length)
+        ].id;
     },
     setPattern(p) {
       this.pattern = p;
@@ -398,6 +552,13 @@ Vue.component("avatar-dialog", {
                                           style="background: #ffffff"></button>
                                     <span class="ml-1 text-xs font-black text-slate-400">or black &amp; white</span>
                               </div>
+
+                              <!--<div class="mt-3 flex flex-wrap items-center gap-2">
+                                <button @click="color = 'cyberpunk'" class="px-2 py-1 text-xs rounded-lg font-bold bg-pink-600 text-cyan-300">Cyberpunk</button>
+                                <button @click="color = 'sunset'" class="px-2 py-1 text-xs rounded-lg font-bold bg-amber-500 text-slate-900">Sunset</button>
+                                <button @click="color = 'neon'" class="px-2 py-1 text-xs rounded-lg font-bold bg-green-500 text-black">Neon</button>
+                                <button @click="color = 'emerald'" class="px-2 py-1 text-xs rounded-lg font-bold bg-emerald-600 text-white">Emerald</button>
+                              </div>-->
 
                               <!-- Pattern -->
                               <p class="mt-5 mb-2 text-sm font-black text-slate-700">🧩 Pattern</p>
