@@ -107,7 +107,7 @@ Vue.component("profile-view", {
                                           class="btn-bubble grid size-10 shrink-0 place-items-center rounded-xl bg-white/25 text-lg font-black hover:bg-white/35">
                                           <i class="fa fa-caret-left"></i>
                                     </button>
-                                    <h1 class="truncate text-xl font-black leading-none">Your Profile</h1>
+                                    <h1 class="truncate text-xl font-black leading-none">My Profile</h1>
                               </div>
                         </div>
 
@@ -121,16 +121,13 @@ Vue.component("profile-view", {
                                     </div>
                               </div>
                               <h2 class="mt-3 truncate text-2xl font-black">{{ myName || "guest" }}</h2>
-                              <p class="mt-1 inline-block rounded-full px-3 py-0.5 text-xs font-black"
-                                    :class="isAccount ? 'bg-orange-500/15 text-orange-700' : 'bg-slate-200 text-slate-600'">
-                                    {{ isAccount ? "👤 @ " + username : "🐾 Guest player" }}
-                              </p>
-                              <div class="mt-3 inline-flex items-center gap-2 rounded-2xl px-3 py-1.5 text-sm font-black text-white shadow"
+                              
+                              <div class="mt-1 w-fit items-center mx-auto gap-2 rounded-2xl px-3 py-1.5 text-xs text-white shadow"
                                     :class="'bg-gradient-to-r ' + rank.bar">
-                                    <span class="text-lg">{{ rank.emoji }}</span> {{ rank.title }}
+                                    <span class="tex">{{ rank.emoji }}</span> {{ rank.title }}
                               </div>
                               <button @click="$emit('open-avatar')" title="Change your avatar"
-                                    class="btn-bubble mt-3 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-br from-fuchsia-600 to-purple-700 px-4 py-2 text-sm font-black text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
+                                    class="btn-bubble mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-br from-fuchsia-600 to-purple-700 px-4 py-2 text-sm font-black text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
                                     🎨 Change avatar
                               </button>
                         </div>
@@ -150,21 +147,22 @@ Vue.component("profile-view", {
 
                         <!-- Stats cards -->
                         <div class="grid grid-cols-2 gap-2">
-                              <div class="rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
-                                    <p class="text-3xl font-black leading-none">{{ games }}</p>
-                                    <p class="mt-1 text-sm font-black text-white/90">🎮 Games</p>
+                              <div class="rounded-3xl bg-gradient-to-br from-amber-500 to-yellow-600 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
+                                    <p class="mt-1 font-black text-white/90">🎮 Games</p>
+                                    <p class="text-3xl font-black leading-none tracking-wide">{{ games }}</p>
                               </div>
-                              <div class="rounded-3xl bg-gradient-to-br from-lime-500 to-green-600 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
-                                    <p class="text-3xl font-black leading-none">{{ stats.wins }}</p>
-                                    <p class="mt-1 text-sm font-black text-white/90">🏆 Wins</p>
+                              <div class="rounded-3xl bg-gradient-to-br from-lime-600 to-green-700 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
+                                    <p class="mt-1 font-black text-white/90">🏆 Wins</p>
+                                    <p class="text-3xl font-black leading-none tracking-wide">{{ stats.wins }}</p>
                               </div>
-                              <div class="rounded-3xl bg-gradient-to-br from-rose-500 to-red-600 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
-                                    <p class="text-3xl font-black leading-none">{{ stats.losses }}</p>
-                                    <p class="mt-1 text-sm font-black text-white/90">🩹 Losses</p>
+                              <div class="rounded-3xl bg-gradient-to-br from-rose-600 to-red-700 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
+                                    <p class="mt-1 font-black text-white/90">💀 Losses</p>
+                                    <p class="text-3xl font-black leading-none tracking-wide">{{ stats.losses }}</p>
+                                    
                               </div>
-                              <div class="rounded-3xl bg-gradient-to-br from-sky-400 to-indigo-500 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
-                                    <p class="text-3xl font-black leading-none">{{ stats.draws }}</p>
-                                    <p class="mt-1 text-sm font-black text-white/90">🤝 Draws</p>
+                              <div class="rounded-3xl bg-gradient-to-br from-gray-500 to-gray-600 p-4 text-white shadow-[0_5px_0_rgba(0,0,0,0.15)]">
+                                    <p class="mt-1 font-black text-white/90">🤝 Draws</p>
+                                    <p class="text-3xl font-black leading-none tracking-wide">{{ stats.draws }}</p>
                               </div>
                         </div>
 

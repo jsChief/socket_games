@@ -140,6 +140,19 @@ const saveAccounts = () => {
 loadStats();
 loadAccounts();
 
+// Keep public/avatars in sync with the accounts currently on file: drop avatar
+// files for removed accounts / stale test players. Anything dropped is simply
+// regenerated on demand if that player comes back online later.
+try {
+  const accountSlugs = Object.keys(accounts.accounts).map((k) =>
+    avatars.slugify(accounts.accounts[k].username || k),
+  );
+  const pruned = avatars.pruneAvatars(accountSlugs);
+  if (pruned > 0) console.log(`[avatar] pruned ${pruned} stale avatar file(s).`);
+} catch (e) {
+  console.error("[avatar] prune failed:", e);
+}
+
 // Create shared modules: room lifecycle + the two games. Each game module
 // receives only the io helpers it needs, so the games stay decoupled.
 const {
@@ -468,6 +481,21 @@ function leaveRoomHandler(socket) {
   io.emit("online-players", getOnlinePlayers());
 }
 
+// Only write avatar files for a player who genuinely is a registered account
+// (name AND persistentUserId match). Guests get the URL of an existing file
+// (if they configured one via Avatar Studio) or null. Read-only reports and
+// online-player broadcasts therefore never recreate avatar files for stale
+// guest names — e.g. a removed account's leftover tab coming back online, or
+// a random guest hijacking an account's display name.
+function avatarDisplayUrl(name, uid) {
+  const key = String(name || "").trim().toLowerCase();
+  const acc = accounts.accounts[key];
+  if (acc && acc.persistentUserId === uid) {
+    return avatars.ensureAvatar(name, { uid });
+  }
+  return avatars.avatarUrlIfExists(name, { uid });
+}
+
 function getOnlinePlayers() {
   return players
     .filter((p) => p.online && !p.isBot)
@@ -477,7 +505,7 @@ function getOnlinePlayers() {
       name: p.name,
       game: p.game,
       roomCode: p.roomCode,
-      avatarUrl: avatars.ensureAvatar(p.name, { uid: p.persistentUserId }),
+      avatarUrl: avatarDisplayUrl(p.name, p.persistentUserId),
     }));
 }
 
@@ -875,6 +903,23 @@ io.on("connection", (socket) => {
       color: finalColor,
       pattern: finalPattern,
     });
+    // Drop superseded variants so repeated studio saves don't accumulate
+    // old avatar PNGs for the same player.
+    if (
+      !account ||
+      avatars.slugify(account.username) === avatars.slugify(player.name)
+    ) {
+      const removedCount = avatars.pruneAvatarVariants(
+        player.name,
+        finalColor,
+        finalPattern,
+      );
+      if (removedCount > 0) {
+        console.log(
+          `[avatar] ${player.name} pruned ${removedCount} stale variant(s).`,
+        );
+      }
+    }
     io.emit("online-players", getOnlinePlayers());
     console.log(`[avatar] ${player.name} set color=${finalColor} pattern=${finalPattern}`);
   });

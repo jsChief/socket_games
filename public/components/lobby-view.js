@@ -113,13 +113,13 @@ Vue.component("lobby-view", {
                                     </div>
                                     <div class="shrink-0">
                                           <button @click="$emit('open-profile')" title="View your profile"
-                                                class="flex max-w-full items-center gap-1.5 rounded-full bg-white/25 py-0.5 pl-0.5 pr-2 text-xs font-black shadow-sm transition-colors hover:bg-white/35 active:bg-white/40">
+                                                class="flex max-w-full items-center gap-1.5 rounded-full bg-black/25 py-0.5 pl-0.5 pr-2 text-xs font-black shadow-sm transition-colors hover:bg-white/35 active:bg-white/40">
                                                 <img v-if="myAvatarUrl" :src="myAvatarUrl" alt="" class="lobby-avatar-sm" />
                                                 <span v-else class="lobby-avatar-sm lobby-avatar-fallback">{{ myAvatarFallback }}</span>
                                                 <span class="truncate inline-block max-w-24">{{ myName || "guest" }}</span>
                                                 <span class="fa fa-chevron-right text-[10px] text-white/90"></span>
                                           </button>
-                                          <div class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black"
+                                          <div class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black"
                                                 :class="connectionBadgeClass">
                                                 <span class="size-1.5 rounded-full" :class="connectionDotClass"></span>
                                                 {{ connectionStatusText }}
@@ -160,7 +160,7 @@ Vue.component("lobby-view", {
                                     <p v-if="onlinePlayers.length === 0" class="text-sm text-slate-500">
                                           No one is online right now.
                                     </p>
-                                    <div v-else class="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+                                    <div v-else class="flex flex-col gap-1.5 p-1 max-h-40 overflow-y-auto">
 <div v-for="p in onlinePlayers" :key="p.id"
                                                   class="flex items-center gap-2 rounded-2xl bg-white/40 px-3 py-2 text-sm shadow-sm"
                                                   :class="p.id === socketId ? 'cursor-pointer ring-1 ring-orange-300 transition-colors hover:bg-white/60 active:bg-white/70' : ''"
