@@ -477,9 +477,7 @@ function getOnlinePlayers() {
       name: p.name,
       game: p.game,
       roomCode: p.roomCode,
-      avatarUrl: accounts.accounts[(p.name || "").toLowerCase()]
-        ? avatars.ensureAvatar(p.name)
-        : null,
+      avatarUrl: avatars.ensureAvatar(p.name, { uid: p.persistentUserId }),
     }));
 }
 
@@ -656,7 +654,7 @@ io.on("connection", (socket) => {
     const key = token && accounts.tokens[token];
     if (key && accounts.accounts[key]) {
       const acc = accounts.accounts[key];
-      avatars.ensureAvatar(acc.username);
+      avatars.ensureAvatar(acc.username, { uid: acc.persistentUserId });
       socket.emit("auth-success", {
         token,
         username: acc.username,
@@ -698,7 +696,7 @@ io.on("connection", (socket) => {
     const token = generateToken();
     accounts.tokens[token] = key;
     saveAccounts();
-    avatars.ensureAvatar(username);
+    avatars.ensureAvatar(username, { uid: persistentUserId });
 
     socket.emit("auth-success", { token, username, persistentUserId });
     connectPlayer(socket, { persistentUserId, name: username });
@@ -717,7 +715,7 @@ io.on("connection", (socket) => {
     const token = generateToken();
     accounts.tokens[token] = key;
     saveAccounts();
-    avatars.ensureAvatar(acc.username);
+    avatars.ensureAvatar(acc.username, { uid: acc.persistentUserId });
 
     socket.emit("auth-success", {
       token,
@@ -776,6 +774,104 @@ io.on("connection", (socket) => {
       // This is a new player trying to set a name for the first time
       addNewPlayer(socket, name.trim(), persistentUserId);
     }
+  });
+
+  // -------- Profile (own stats + account info) --------
+  socket.on("get-profile", () => {
+    const player = players.find((p) => p.id === socket.id);
+    if (!player || !player.persistentUserId) return;
+    const uid = player.persistentUserId;
+    const account = accounts.accounts[
+      (player.name || "").toLowerCase()
+    ] || (function () {
+      for (const key of Object.keys(accounts.accounts)) {
+        if (accounts.accounts[key].persistentUserId === uid) {
+          return accounts.accounts[key];
+        }
+      }
+      return null;
+    })();
+    const s = stats.players[uid] || {
+      wins: 0,
+      losses: 0,
+      draws: 0,
+    };
+    const wins = s.wins || 0;
+    const losses = s.losses || 0;
+    const draws = s.draws || 0;
+    const total = wins + losses + draws;
+    const avatarSettings = avatars.getAvatarSettings(uid) || {};
+    const avatarHue =
+      typeof avatarSettings.hue === "number"
+        ? Math.round(((avatarSettings.hue % 360) + 360) % 360)
+        : null;
+    const avatarPattern = avatarSettings.pattern || "random";
+    socket.emit("my-profile", {
+      name: player.name,
+      uid,
+      username: account ? account.username : null,
+      avatarUrl: account
+        ? avatars.ensureAvatar(account.username, {
+            uid,
+            hue: avatarHue,
+            pattern: avatarPattern,
+          })
+        : avatars.ensureAvatar(player.name, {
+            uid,
+            hue: avatarHue,
+            pattern: avatarPattern,
+          }),
+      avatar: {
+        hue: avatarHue != null ? avatarHue : avatars.baseHueOf(player.name),
+        pattern: avatarPattern,
+      },
+      stats: {
+        wins,
+        losses,
+        draws,
+        total,
+        winRate: total ? Math.round((wins / total) * 1000) / 10 : 0,
+      },
+    });
+  });
+
+  socket.on("set-avatar", (data) => {
+    const player = players.find((p) => p.id === socket.id);
+    if (!player || !player.persistentUserId) return;
+    const hueDeg = avatars.sanitizeHue(data && data.hue);
+    const pattern = avatars.sanitizePattern(data && data.pattern);
+    const finalHue = hueDeg != null ? hueDeg : avatars.baseHueOf(player.name);
+    const finalPattern = pattern || "random";
+    avatars.setAvatarSettings(player.persistentUserId, {
+      hue: finalHue,
+      pattern: finalPattern,
+    });
+    const account = (function () {
+      for (const key of Object.keys(accounts.accounts)) {
+        if (accounts.accounts[key].persistentUserId === player.persistentUserId) {
+          return accounts.accounts[key];
+        }
+      }
+      return null;
+    })();
+    if (account) {
+      avatars.ensureAvatar(account.username, {
+        uid: player.persistentUserId,
+        hue: finalHue,
+        pattern: finalPattern,
+      });
+    }
+    socket.emit("my-avatar", {
+      avatarUrl: avatars.ensureAvatar(player.name, {
+        uid: player.persistentUserId,
+        hue: finalHue,
+        pattern: finalPattern,
+      }),
+      hue: finalHue,
+      pattern: finalPattern,
+    });
+    io.emit("online-players", getOnlinePlayers());
+    console.log(`[avatar] ${player.name} set hue=${finalHue} pattern=${finalPattern}`);
   });
 
   socket.on("new-user", (name) => {

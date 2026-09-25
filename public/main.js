@@ -30,8 +30,26 @@ var app = new Vue({
             hasNewMessage: false,
             theme: localStorage.getItem("gameTheme") || "sunset",
             mode: localStorage.getItem("gameMode") === "dark" ? "dark" : "light",
+            profile: null,
+            myAvatarUrl: "",
       },
       methods: {
+            openProfile() {
+                  socket.emit("get-profile");
+                  if (this.$refs.chat) this.$refs.chat.close();
+                  this.view = "profile";
+            },
+            closeProfile() {
+                  this.view = "lobby";
+                  sessionStorage.removeItem("view");
+            },
+            openAvatarDialog() {
+                  if (app.$refs.chat) app.$refs.chat.close();
+                  showAvatarDialog(
+                        app.myName,
+                        (app.profile && app.profile.avatar) || null,
+                  );
+            },
             openChat() {
                   this.hasNewMessage = false;
                   if (this.$refs.chat) this.$refs.chat.open();
@@ -122,6 +140,8 @@ window.addEventListener("popstate", () => {
       if (app.view === "auth") return;
       if (app.$refs.chat && app.$refs.chat.chatOpen) {
             app.$refs.chat.close();
+      } else if (app.view === "profile") {
+            app.closeProfile();
       } else if (app.view !== "lobby") {
             app.backToRoom();
       }
@@ -297,6 +317,12 @@ function connectSocket() {
       socket.on("online-players", (list) => {
             if (app.$refs.lobby) app.$refs.lobby.setOnlinePlayers(list);
             if (app.$refs.chat) app.$refs.chat.setOnlinePlayers(list);
+            if (app.socketId) {
+                  const self = (list || []).find(
+                        (p) => p.id === app.socketId,
+                  );
+                  if (self && self.avatarUrl) app.myAvatarUrl = self.avatarUrl;
+            }
       });
 
       socket.on("connecting", () => {
@@ -639,6 +665,23 @@ function connectSocket() {
 
       socket.on("private-history", (data) => {
             if (app.$refs.chat) app.$refs.chat.receivePrivateHistory(data);
+      });
+
+      socket.on("my-profile", (data) => {
+            app.profile = data;
+            if (data && data.avatarUrl) app.myAvatarUrl = data.avatarUrl;
+      });
+
+      socket.on("my-avatar", (data) => {
+            if (!data) return;
+            if (data.avatarUrl) app.myAvatarUrl = data.avatarUrl;
+            if (app.profile) {
+                  app.profile.avatarUrl = data.avatarUrl;
+                  app.profile.avatar = {
+                        hue: data.hue,
+                        pattern: data.pattern,
+                  };
+            }
       });
 }
 
