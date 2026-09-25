@@ -347,7 +347,7 @@ function connectSocket() {
       socket.on("admin-message", (data) => {
             serverMessageTone.play();
             const text = (data && data.text) || "";
-            showToast("🛡 " + text, "turn");
+            showAdminMessage("🛡️ " + text);
             if (app.$refs.chat)
                   app.$refs.chat.addMessage(
                         "🛡 " + text,

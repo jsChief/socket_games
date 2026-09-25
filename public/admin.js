@@ -57,6 +57,7 @@
       statsSort: "wins",
       modal: { type: null },
       toasts: [],
+      light: false,
     },
     computed: {
       isRoot() {
@@ -322,6 +323,10 @@
           m.error = "Message cannot be empty.";
           return;
         }
+        if (m.message.length > 500) {
+          m.error = "Message is too long (max 500 characters).";
+          return;
+        }
         this
           .api("/players/message", { body: { socketId: m.player.id, message: m.message } })
           .then(function (d) {
@@ -507,6 +512,11 @@
       closeModal() {
         this.modal = { type: null };
       },
+      toggleMode() {
+        this.light = !this.light;
+        localStorage.setItem("adminMode", this.light ? "light" : "dark");
+        document.body.classList.toggle("light", this.light);
+      },
       shortId(id) {
         if (!id) return "—";
         return String(id).slice(0, 8) + "…";
@@ -540,6 +550,8 @@
     },
     mounted() {
       var self = this;
+      // Sync with the class the inline script may already have applied.
+      this.light = document.body.classList.contains("light");
       var saved = localStorage.getItem("adminToken");
       if (saved) {
         this.token = saved;

@@ -311,14 +311,14 @@ Vue.component("reversi-view", {
                         <div class="relative z-10 flex items-center gap-3">
                               <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/25 text-2xl shadow-lg">⚫</span>
                               <div class="min-w-0 flex-1 leading-tight">
-                                    <div class="flex items-center gap-2">
-                                          <h1 class="min-w-0 flex-1 truncate text-lg sm:text-xl font-black leading-none">Reversi</h1>
+                                    <h1 class="min-w-0 flex-1 truncate text-lg sm:text-xl font-black leading-none">Reversi</h1>
+                                    <div class="md:flex items-center gap-2 mt-2 place-content-between">
+                                          <p class="hidden md:block mt-0.5 truncate text-xs font-bold text-white/85">Flip the board to your color!</p>
                                           <button @click="openHelp"
                                                 class="btn-bubble shrink-0 rounded-xl bg-white/25 px-2.5 py-1.5 text-xs font-black hover:bg-white/35">
                                                 ❓ How to play
                                           </button>
                                     </div>
-                                    <p class="mt-0.5 truncate text-xs font-bold text-white/85">Flip the board to your color!</p>
                               </div>
                         </div>
                   </div>

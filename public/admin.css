@@ -66,6 +66,7 @@ select {
 }
 
 .login-card {
+  position: relative;
   width: 100%;
   max-width: 380px;
   background: var(--card);
@@ -73,6 +74,12 @@ select {
   border-radius: 18px;
   padding: 26px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.login-theme-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
 }
 
 .login-card .logo {
@@ -353,6 +360,92 @@ select {
   font-weight: 700;
 }
 
+/* Fancy dashboard stat cards: per-card accent color, soft glow blobs and
+   dashed rings clipped to the card, and a colored icon chip. */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
+}
+
+.stat-card::before,
+.stat-card::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.stat-card::before {
+  width: 160px;
+  height: 160px;
+  right: -60px;
+  top: -60px;
+  background: radial-gradient(circle at 35% 35%, var(--stat-accent), transparent 70%);
+  opacity: 0.22;
+}
+
+.stat-card::after {
+  width: 88px;
+  height: 88px;
+  bottom: -42px;
+  left: -34px;
+  border: 2px dashed var(--stat-accent);
+  opacity: 0.28;
+}
+
+.stat-card .stat-content {
+  position: relative;
+  z-index: 1;
+}
+
+.stat-card .stat-icon {
+  color: var(--stat-accent);
+  background: var(--stat-accent-soft);
+  border-color: var(--stat-accent-edge);
+}
+
+.stat-blue {
+  --stat-accent: #3b82f6;
+  --stat-accent-soft: rgba(59, 130, 246, 0.14);
+  --stat-accent-edge: rgba(59, 130, 246, 0.4);
+}
+
+.stat-teal {
+  --stat-accent: #0d9488;
+  --stat-accent-soft: rgba(13, 148, 136, 0.14);
+  --stat-accent-edge: rgba(13, 148, 136, 0.4);
+}
+
+.stat-purple {
+  --stat-accent: #8b5cf6;
+  --stat-accent-soft: rgba(139, 92, 246, 0.14);
+  --stat-accent-edge: rgba(139, 92, 246, 0.4);
+}
+
+.stat-amber {
+  --stat-accent: #f59e0b;
+  --stat-accent-soft: rgba(245, 158, 11, 0.16);
+  --stat-accent-edge: rgba(245, 158, 11, 0.45);
+}
+
+.stat-cyan {
+  --stat-accent: #06b6d4;
+  --stat-accent-soft: rgba(6, 182, 212, 0.16);
+  --stat-accent-edge: rgba(6, 182, 212, 0.45);
+}
+
+.stat-rose {
+  --stat-accent: #f43f5e;
+  --stat-accent-soft: rgba(244, 63, 94, 0.14);
+  --stat-accent-edge: rgba(244, 63, 94, 0.4);
+}
+
 .two-col {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
 }
@@ -583,6 +676,78 @@ select {
   align-items: center;
   gap: 10px;
   margin-top: 10px;
+}
+
+/* ---------- Message composer (admin → player) ---------- */
+.composer {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.composer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.composer-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.composer-label i {
+  margin-right: 4px;
+}
+
+.composer-input {
+  width: 100%;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 96px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.composer-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 108, 240, 0.22);
+}
+
+.composer-input::placeholder {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.composer-foot .count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.composer-foot .count.warn {
+  color: var(--danger);
+  font-weight: 800;
 }
 
 .prev-announce {
@@ -872,4 +1037,87 @@ details.card .card-inner {
   .row-actions {
     flex-direction: column;
   }
+}
+
+/* ---------- Light mode ---------- */
+/* Toggled by adding .light to body.admin-body (see admin.js / admin.html). The
+   whole panel is driven by the CSS variables above, so light mode primarily
+   remaps those tokens, then patches the few hard-coded dark colors. */
+.admin-body.light {
+  --bg: #eef1f9;
+  --bg-soft: #ffffff;
+  --card: #ffffff;
+  --card-2: #e7eaf5;
+  --border: #d5dbea;
+  --text: #222642;
+  --muted: #636a8f;
+  --accent: #6d5ce0;
+  --accent-2: #0d9488;
+  --danger: #dc2626;
+  --warn: #b45309;
+  --ok: #059669;
+  --info: #2563eb;
+}
+
+.admin-body.light {
+  background:
+    radial-gradient(900px 420px at 85% -10%, rgba(109, 92, 224, 0.12), transparent 60%),
+    radial-gradient(700px 380px at -10% 110%, rgba(13, 148, 136, 0.08), transparent 55%),
+    var(--bg);
+}
+
+.admin-body.light .admin-top {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.admin-body.light .admin-nav {
+  background: rgba(247, 248, 253, 0.72);
+}
+
+.admin-body.light .login-card {
+  box-shadow: 0 24px 60px rgba(30, 34, 66, 0.12);
+}
+
+.admin-body.light .modal {
+  box-shadow: 0 30px 70px rgba(30, 34, 66, 0.18);
+}
+
+.admin-body.light .tbl td,
+.admin-body.light .room-row,
+.admin-body.light .player-line {
+  border-bottom-color: rgba(213, 219, 234, 0.95);
+}
+
+.admin-body.light .progress-bar {
+  background: #e7eaf5;
+}
+
+.admin-body.light .log-list {
+  background: #f7f8fc;
+}
+
+.admin-body.light .log-line .t {
+  color: #9aa1bd;
+}
+
+.admin-body.light .code-chip,
+.admin-body.light .modal .big-code {
+  color: #0f766e;
+}
+
+.admin-body.light .badge-game,
+.admin-body.light .chip.bot {
+  color: #5b4bd6;
+}
+
+.admin-body.light .user-chip .role-badge {
+  color: #4c3fd0;
+}
+
+.admin-body.light .error-text {
+  color: #b91c1c;
+}
+
+.admin-body.light .filter-btn.active {
+  color: #1c2040;
 }

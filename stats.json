@@ -1,5 +1,5 @@
 {
-  "gamesPlayed": 56,
+  "gamesPlayed": 58,
   "players": {
     "ee24eb3f-80df-4dfb-b214-b4e40a00357c": {
       "wins": 1,
@@ -246,9 +246,9 @@
       "name": "AI Bot"
     },
     "26d1e6e5-5fa1-4f92-8b86-bf1642879dc5": {
-      "wins": 7,
+      "wins": 8,
       "losses": 7,
-      "draws": 2,
+      "draws": 3,
       "name": "wp360"
     },
     "ai-bot-RDTC": {
@@ -387,6 +387,12 @@
       "wins": 0,
       "losses": 0,
       "draws": 0,
+      "name": "AI Bot"
+    },
+    "ai-bot-M7B5": {
+      "wins": 0,
+      "losses": 1,
+      "draws": 1,
       "name": "AI Bot"
     }
   }
