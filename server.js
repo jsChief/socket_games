@@ -13,6 +13,7 @@ const createRps = require("./lib/rps");
 const createConnect4 = require("./lib/connect4");
 const createBot = require("./lib/bot");
 const createAdmin = require("./lib/admin");
+const privateChat = require("./lib/privateChat");
 const avatars = require("./lib/avatars");
 const {
   hashPassword,
@@ -472,6 +473,7 @@ function getOnlinePlayers() {
     .filter((p) => p.online && !p.isBot)
     .map((p) => ({
       id: p.id,
+      uid: p.persistentUserId,
       name: p.name,
       game: p.game,
       roomCode: p.roomCode,
@@ -935,6 +937,93 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("opponent-typing", {
       isTyping: data.isTyping,
       name,
+    });
+  });
+
+  // -------- Private chat (player-to-player) --------
+  socket.on("private-message", (data) => {
+    const from = players.find((p) => p.id === socket.id);
+    if (!from || !from.online || from.isBot) return;
+    const text = String((data && data.text) || "").trim();
+    if (!text) return;
+    const target =
+      players.find(
+        (p) =>
+          p.persistentUserId === (data && data.toUid) &&
+          p.online &&
+          !p.isBot,
+      ) ||
+      players.find(
+        (p) => p.id === (data && data.to) && p.online && !p.isBot,
+      );
+    if (!target) return;
+    const saved = privateChat.addMessage(
+      from.persistentUserId,
+      target.persistentUserId,
+      from.persistentUserId,
+      from.name,
+      text,
+      (data && data.replyTo) || null,
+    );
+    io.to(target.id).emit("private-message", {
+      fromId: socket.id,
+      fromUid: from.persistentUserId,
+      fromName: from.name,
+      text,
+      replyTo: saved.replyTo,
+      at: saved.at,
+    });
+    console.log("[dm] " + from.name + " → " + target.name + ": " + text);
+  });
+
+  socket.on("join-private-chat", (data) => {
+    const from = players.find((p) => p.id === socket.id);
+    if (!from || !from.persistentUserId) return;
+    const partnerUid = (data && data.partnerUid) || "";
+    if (!partnerUid) return;
+    if (partnerUid === from.persistentUserId) return;
+    const messages = privateChat.getMessages(
+      from.persistentUserId,
+      partnerUid,
+    );
+    const partner =
+      players.find((p) => p.persistentUserId === partnerUid && !p.isBot) ||
+      null;
+    const lastPartnerMsg = partner
+      ? null
+      : messages
+            .slice()
+            .reverse()
+            .find((m) => m.fromUid === partnerUid);
+    socket.emit("private-history", {
+      partnerUid,
+      partnerName: partner
+        ? partner.name
+        : lastPartnerMsg
+          ? lastPartnerMsg.fromName
+          : "",
+      messages,
+    });
+  });
+
+  socket.on("private-typing", (data) => {
+    const from = players.find((p) => p.id === socket.id);
+    const target =
+      players.find(
+        (p) =>
+          p.persistentUserId === (data && data.toUid) &&
+          p.online &&
+          !p.isBot,
+      ) ||
+      players.find(
+        (p) => p.id === (data && data.to) && p.online && !p.isBot,
+      );
+    if (!from || !target) return;
+    io.to(target.id).emit("private-typing", {
+      fromId: socket.id,
+      fromUid: from.persistentUserId,
+      fromName: from.name,
+      isTyping: !!(data && data.isTyping),
     });
   });
 

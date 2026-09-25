@@ -194,6 +194,7 @@ function connectSocket() {
             app.connectionStatus = "connected";
             showToast("Connected to server", "success");
             app.socketId = socket.id;
+            if (app.$refs.chat) app.$refs.chat.setSelfSocket(socket.id, persistentUserId);
             socket.emit("auth-connect", {
                   token: localStorage.getItem("authToken") || "",
                   persistentUserId: persistentUserId,
@@ -208,6 +209,15 @@ function connectSocket() {
       socket.on("auth-success", (data) => {
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("authUsername", data.username || "");
+            if (data.persistentUserId) {
+                  localStorage.setItem("persistentUserId", data.persistentUserId);
+                  persistentUserId = data.persistentUserId;
+                  if (app.$refs.chat)
+                        app.$refs.chat.setSelfSocket(
+                              app.socketId,
+                              data.persistentUserId,
+                        );
+            }
             app.myName = data.username || app.myName;
             const saved = sessionStorage.getItem("view");
             app.view = ["tictactoe", "pizza", "reversi", "rps", "connect4", "spectator", "room"].includes(saved)
@@ -286,6 +296,7 @@ function connectSocket() {
 
       socket.on("online-players", (list) => {
             if (app.$refs.lobby) app.$refs.lobby.setOnlinePlayers(list);
+            if (app.$refs.chat) app.$refs.chat.setOnlinePlayers(list);
       });
 
       socket.on("connecting", () => {
@@ -348,12 +359,6 @@ function connectSocket() {
             serverMessageTone.play();
             const text = (data && data.text) || "";
             showAdminMessage("🛡️ " + text);
-            if (app.$refs.chat)
-                  app.$refs.chat.addMessage(
-                        "🛡 " + text,
-                        "rounded-xl bg-amber-100 text-center text-amber-700 font-bold ",
-                        "server",
-                  );
       });
 
       socket.on("admin-room-closed", () => {
@@ -622,6 +627,18 @@ function connectSocket() {
             if (!app.$refs.chat) return;
             if (data.isTyping) app.$refs.chat.showTyping(data.name);
             else app.$refs.chat.hideTyping();
+      });
+
+      socket.on("private-message", (data) => {
+            if (app.$refs.chat) app.$refs.chat.receivePrivateMessage(data);
+      });
+
+      socket.on("private-typing", (data) => {
+            if (app.$refs.chat) app.$refs.chat.setPrivateTyping(data);
+      });
+
+      socket.on("private-history", (data) => {
+            if (app.$refs.chat) app.$refs.chat.receivePrivateHistory(data);
       });
 }
 
