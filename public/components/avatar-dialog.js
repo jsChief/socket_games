@@ -56,6 +56,34 @@ function __hslToRgb(h, s, l) {
   ];
 }
 
+// Resolve the 4-color palette from a color (hue degrees or mono "black"/"white").
+// Mirrors lib/avatars.js paletteFor().
+function __paletteFor(color) {
+  if (color === "black") {
+    return {
+      fg: [23, 26, 34],
+      dark: [7, 8, 12],
+      hl: [132, 138, 154],
+      bg: [242, 243, 247],
+    };
+  }
+  if (color === "white") {
+    return {
+      fg: [247, 248, 250],
+      dark: [196, 200, 210],
+      hl: [255, 255, 255],
+      bg: [104, 109, 124],
+    };
+  }
+  var hueFrac = (((color % 360) + 360) % 360) / 360;
+  return {
+    fg: __hslToRgb(hueFrac, 0.62, 0.46),
+    dark: __hslToRgb((hueFrac + 0.015) % 1, 0.55, 0.28),
+    hl: __hslToRgb((hueFrac + 0.02) % 1, 0.55, 0.68),
+    bg: __hslToRgb(hueFrac, 0.45, 0.93),
+  };
+}
+
 function __slugify(name) {
   var slug = String(name || "")
     .toLowerCase()
@@ -110,6 +138,13 @@ function __buildIdenticon(seedStr, hue, pattern) {
       var v = rand();
       return v < 0.2 ? "fg" : v < 0.28 ? "dark" : v < 0.34 ? "hl" : null;
     }
+    if (pattern === "face") {
+      // Cute face: rounded head in fg, dark eyes + smile, light blush.
+      if (y === 0 || y === 7) return x === 0 ? null : "fg";
+      if (y === 2 || y === 3) return x === 2 ? "dark" : "fg";
+      if (y === 5) return x === 1 ? "hl" : x === 2 || x === 3 ? "dark" : "fg";
+      return "fg";
+    }
     // "random"
     var v = rand();
     return v < 0.38 ? "fg" : v < 0.43 ? "dark" : v < 0.48 ? "hl" : null;
@@ -125,10 +160,11 @@ function __buildIdenticon(seedStr, hue, pattern) {
   return grid;
 }
 
-// Draw the avatar for (name, hueDeg, pattern) into a canvas. Canvas should be
-// GRID * px cells wide; matching grid 8x8 with px-sized cells reproduces the
-// server's 8x scaled 64x64 PNG.
-function drawIdenticon(canvas, name, hueDeg, pattern) {
+// Draw the avatar for (name, color, pattern) into a canvas. `color` is a hue in
+// degrees (number) or "black"/"white". Canvas should be GRID * px cells wide;
+// matching grid 8x8 with px-sized cells reproduces the server's 8x scaled
+// 64x64 PNG.
+function drawIdenticon(canvas, name, color, pattern) {
   if (!canvas || !canvas.getContext) return;
   var gridSize = __GRID;
   var px = canvas.width / gridSize;
@@ -136,18 +172,26 @@ function drawIdenticon(canvas, name, hueDeg, pattern) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!name) return;
 
-  var seed =
-    String(name) + "|" + Math.round(hueDeg) + "|" + (pattern || "random");
-  var hueFrac = (((hueDeg % 360) + 360) % 360) / 360;
+  var colorStr =
+    typeof color === "number"
+      ? Math.round(color) % 360
+      : color === "black" || color === "white"
+        ? color
+        : 200;
+  var seed = String(name) + "|" + colorStr + "|" + (pattern || "random");
+  var pal = __paletteFor(colorStr);
 
-  var fg = __hslToRgb(hueFrac, 0.62, 0.46);
-  var dark = __hslToRgb((hueFrac + 0.015) % 1, 0.55, 0.28);
-  var hl = __hslToRgb((hueFrac + 0.02) % 1, 0.55, 0.68);
-  var bg = __hslToRgb(hueFrac, 0.45, 0.93);
-
-  var grid = __buildIdenticon(seed, hueFrac, pattern || "random");
+  var grid = __buildIdenticon(seed, colorStr, pattern || "random");
   function fill(cell, x, y) {
-    ctx.fillStyle = cell === "fg" ? "rgb(" + fg.join(",") + ")" : cell === "dark" ? "rgb(" + dark.join(",") + ")" : cell === "hl" ? "rgb(" + hl.join(",") + ")" : "rgb(" + bg.join(",") + ")";
+    var c =
+      cell === "fg"
+        ? pal.fg
+        : cell === "dark"
+          ? pal.dark
+          : cell === "hl"
+            ? pal.hl
+            : pal.bg;
+    ctx.fillStyle = "rgb(" + c.join(",") + ")";
     ctx.fillRect(x * px, y * px, px, px);
   }
   for (var y = 0; y < gridSize; y++) {
@@ -158,7 +202,7 @@ function drawIdenticon(canvas, name, hueDeg, pattern) {
 }
 
 var __avatarName = "";
-var __avatarHue = 0;
+var __avatarColor = 200;
 var __avatarPattern = "random";
 var __avatarDialogVm = null;
 
@@ -169,6 +213,7 @@ var __avatarPatterns = [
   { id: "rings", label: "Rings" },
   { id: "dots", label: "Dots" },
   { id: "cross", label: "Cross" },
+  { id: "face", label: "Face" },
 ];
 
 var __avatarSwatches = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
@@ -177,7 +222,7 @@ Vue.component("avatar-dialog", {
   data() {
     return {
       open: false,
-      hue: 0,
+      color: 200,
       pattern: "random",
       patternList: __avatarPatterns,
       swatches: __avatarSwatches,
@@ -186,6 +231,14 @@ Vue.component("avatar-dialog", {
   computed: {
     name() {
       return __avatarName;
+    },
+    hueNum: {
+      get() {
+        return typeof this.color === "number" ? this.color : 200;
+      },
+      set(v) {
+        this.color = v;
+      },
     },
   },
   mounted() {
@@ -198,7 +251,7 @@ Vue.component("avatar-dialog", {
   watch: {
     open(open) {
       if (open) {
-        this.hue = __avatarHue;
+        this.color = __avatarColor;
         this.pattern = __avatarPattern;
         window.addEventListener("keydown", this.onKey);
         this.$nextTick(() => {
@@ -209,7 +262,7 @@ Vue.component("avatar-dialog", {
         window.removeEventListener("keydown", this.onKey);
       }
     },
-    hue() {
+    color() {
       this.render();
       this.renderMini();
     },
@@ -221,8 +274,12 @@ Vue.component("avatar-dialog", {
   methods: {
     show(name, current) {
       __avatarName = name || "";
-      __avatarHue =
-        current && typeof current.hue === "number" ? current.hue : 200;
+      __avatarColor =
+        current && current.color !== undefined && current.color !== null
+          ? current.color
+          : current && typeof current.hue === "number"
+            ? current.hue
+            : 200;
       __avatarPattern =
         current && current.pattern ? current.pattern : "random";
       this.open = true;
@@ -236,7 +293,7 @@ Vue.component("avatar-dialog", {
     render() {
       this.$nextTick(() => {
         const c = this.$refs.preview;
-        if (c) drawIdenticon(c, this.name, this.hue, this.pattern);
+        if (c) drawIdenticon(c, this.name, this.color, this.pattern);
       });
     },
     renderMini() {
@@ -246,14 +303,14 @@ Vue.component("avatar-dialog", {
           drawIdenticon(
             canvas,
             this.name,
-            this.hue,
+            this.color,
             canvas.getAttribute("data-pattern") || "random",
           );
         }
       });
     },
     pickHue(h) {
-      this.hue = h;
+      this.color = h;
     },
     swatchColors() {
       return this.swatches.map((h) => "hsl(" + h + ", 62%, 46%)");
@@ -267,7 +324,12 @@ Vue.component("avatar-dialog", {
       return stops.join(", ");
     },
     randomize() {
-      this.hue = Math.floor(Math.random() * 360);
+      this.color =
+        Math.random() < 0.12
+          ? Math.random() < 0.5
+            ? "black"
+            : "white"
+          : Math.floor(Math.random() * 360);
       this.pattern =
         __avatarPatterns[Math.floor(Math.random() * __avatarPatterns.length)]
           .id;
@@ -277,7 +339,10 @@ Vue.component("avatar-dialog", {
     },
     save() {
       socket.emit("set-avatar", {
-        hue: Math.round(this.hue) % 360,
+        color:
+          typeof this.color === "number"
+            ? Math.round(this.color) % 360
+            : this.color,
         pattern: this.pattern,
       });
       this.close();
@@ -311,15 +376,27 @@ Vue.component("avatar-dialog", {
                               </div>
 
                               <!-- Seed color -->
-                              <p class="mt-5 mb-2 text-sm font-black text-slate-700">🌈 Seed color</p>
-                              <input type="range" v-model.number="hue" min="0" max="359" step="1"
+                              <p class="mt-5 mb-2 text-sm font-black text-slate-700">🌈 Seed color <span v-if="color === 'black' || color === 'white'" class="ml-1 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">{{ color === 'black' ? 'Black' : 'White' }}</span></p>
+                              <input type="range" v-model.number="hueNum" min="0" max="359" step="1"
                                     class="w-full appearance-none rounded-full" style="height: 12px;"
-                                    :style="'background: linear-gradient(90deg, ' + swatchStops(swatchColors()) + ')'" />
+                                    :style="'background: linear-gradient(90deg, ' + swatchStops(swatchColors()) + ')'"
+                                    :class="{ 'opacity-40': color === 'black' || color === 'white' }" />
                               <div class="mt-3 flex justify-between gap-1">
                                     <button v-for="h in swatches" :key="h" @click="pickHue(h)"
                                           class="size-7 rounded-xl shadow-inner"
-                                          :class="Math.round(hue) === h ? 'ring-2 ring-slate-800 scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'"
+                                          :class="color === h ? 'ring-2 ring-slate-800 scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'"
                                           :style="'background: hsl(' + h + ', 62%, 46%)'"></button>
+                              </div>
+                              <div class="mt-3 flex items-center gap-2">
+                                    <button @click="color = 'black'" title="Black &amp; white avatar"
+                                          class="size-7 rounded-xl shadow-inner"
+                                          :class="color === 'black' ? 'ring-2 ring-slate-800 scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'"
+                                          style="background: #171a22"></button>
+                                    <button @click="color = 'white'" title="White avatar"
+                                          class="size-7 rounded-xl shadow-inner border border-slate-300"
+                                          :class="color === 'white' ? 'ring-2 ring-slate-800 scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'"
+                                          style="background: #ffffff"></button>
+                                    <span class="ml-1 text-xs font-black text-slate-400">or black &amp; white</span>
                               </div>
 
                               <!-- Pattern -->
@@ -336,7 +413,7 @@ Vue.component("avatar-dialog", {
                               </div>
 
                               <p class="mt-4 rounded-2xl bg-slate-100 px-3 py-2 text-center text-xs font-bold text-slate-500">
-                                    🎲 Tap the dice to randomize color &amp; pattern
+                                    🎲 Tap the dice to randomize color &amp; pattern (black &amp; white included)
                               </p>
                         </div>
 

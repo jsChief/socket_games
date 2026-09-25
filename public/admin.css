@@ -242,13 +242,55 @@ select {
   flex: 1;
 }
 
-.status-dot {
+.conn-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.conn-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
+  flex: none;
+}
+
+.conn-ok {
+  color: var(--ok);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.conn-ok .conn-dot {
   background: var(--ok);
-  display: inline-block;
   box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.18);
+}
+
+.conn-off {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.12);
+  animation: conn-blink 1.4s ease-in-out infinite;
+}
+
+.conn-off .conn-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.22);
+}
+
+@keyframes conn-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .user-chip {

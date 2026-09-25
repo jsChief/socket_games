@@ -13,6 +13,7 @@
       login: { username: "", password: "", busy: false, error: "" },
       tab: "dashboard",
       clock: "",
+      connected: true,
       refreshing: false,
       tabs: [
         { id: "dashboard", label: "Dashboard", icon: "fa fa-tachometer-alt" },
@@ -117,6 +118,7 @@
         var body = opts.body !== undefined ? JSON.stringify(opts.body) : undefined;
         return fetch(url, { method: method, headers: headers, body: body })
           .then(function (r) {
+            self.markConnected(true);
             return r
               .json()
               .then(function (data) {
@@ -125,6 +127,11 @@
               .catch(function () {
                 return { status: r.status, data: { error: "Bad response from server." } };
               });
+          })
+          .catch(function () {
+            // fetch() rejected => the server is not reachable right now
+            self.markConnected(false);
+            throw new Error("No connection to the server — data is stale.");
           })
           .then(function (res) {
             if (res.status === 401) {
@@ -145,6 +152,12 @@
         this.loggedIn = false;
         this.closeModal();
         this.toast("Your session expired. Please sign in again.", "error");
+      },
+      markConnected(isUp) {
+        var was = this.connected;
+        this.connected = isUp;
+        if (!isUp && was) this.toast("Disconnected from the server — data is stale.", "error");
+        else if (isUp && !was) this.toast("Back online — connected to the server.", "success");
       },
       doLogin() {
         var self = this;

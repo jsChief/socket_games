@@ -678,7 +678,7 @@ function connectSocket() {
             if (app.profile) {
                   app.profile.avatarUrl = data.avatarUrl;
                   app.profile.avatar = {
-                        hue: data.hue,
+                        color: data.color,
                         pattern: data.pattern,
                   };
             }

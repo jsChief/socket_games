@@ -801,10 +801,9 @@ io.on("connection", (socket) => {
     const draws = s.draws || 0;
     const total = wins + losses + draws;
     const avatarSettings = avatars.getAvatarSettings(uid) || {};
-    const avatarHue =
-      typeof avatarSettings.hue === "number"
-        ? Math.round(((avatarSettings.hue % 360) + 360) % 360)
-        : null;
+    const avatarColor = avatars.sanitizeColor(
+      avatarSettings.color !== undefined ? avatarSettings.color : avatarSettings.hue,
+    );
     const avatarPattern = avatarSettings.pattern || "random";
     socket.emit("my-profile", {
       name: player.name,
@@ -813,16 +812,16 @@ io.on("connection", (socket) => {
       avatarUrl: account
         ? avatars.ensureAvatar(account.username, {
             uid,
-            hue: avatarHue,
+            color: avatarColor,
             pattern: avatarPattern,
           })
         : avatars.ensureAvatar(player.name, {
             uid,
-            hue: avatarHue,
+            color: avatarColor,
             pattern: avatarPattern,
           }),
       avatar: {
-        hue: avatarHue != null ? avatarHue : avatars.baseHueOf(player.name),
+        color: avatarColor != null ? avatarColor : avatars.baseHueOf(player.name),
         pattern: avatarPattern,
       },
       stats: {
@@ -838,12 +837,18 @@ io.on("connection", (socket) => {
   socket.on("set-avatar", (data) => {
     const player = players.find((p) => p.id === socket.id);
     if (!player || !player.persistentUserId) return;
-    const hueDeg = avatars.sanitizeHue(data && data.hue);
+    const rawColor =
+      data && data.color !== undefined && data.color !== null
+        ? data.color
+        : data && typeof data.hue === "number"
+          ? data.hue
+          : null;
+    const color = avatars.sanitizeColor(rawColor);
     const pattern = avatars.sanitizePattern(data && data.pattern);
-    const finalHue = hueDeg != null ? hueDeg : avatars.baseHueOf(player.name);
+    const finalColor = color != null ? color : avatars.baseHueOf(player.name);
     const finalPattern = pattern || "random";
     avatars.setAvatarSettings(player.persistentUserId, {
-      hue: finalHue,
+      color: finalColor,
       pattern: finalPattern,
     });
     const account = (function () {
@@ -857,21 +862,21 @@ io.on("connection", (socket) => {
     if (account) {
       avatars.ensureAvatar(account.username, {
         uid: player.persistentUserId,
-        hue: finalHue,
+        color: finalColor,
         pattern: finalPattern,
       });
     }
     socket.emit("my-avatar", {
       avatarUrl: avatars.ensureAvatar(player.name, {
         uid: player.persistentUserId,
-        hue: finalHue,
+        color: finalColor,
         pattern: finalPattern,
       }),
-      hue: finalHue,
+      color: finalColor,
       pattern: finalPattern,
     });
     io.emit("online-players", getOnlinePlayers());
-    console.log(`[avatar] ${player.name} set hue=${finalHue} pattern=${finalPattern}`);
+    console.log(`[avatar] ${player.name} set color=${finalColor} pattern=${finalPattern}`);
   });
 
   socket.on("new-user", (name) => {
