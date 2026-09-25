@@ -260,9 +260,21 @@
         :socket-id="socketId"
         :theme="theme"
         :mode="mode"
+        :my-avatar-url="myAvatarUrl"
         @theme-changed="setTheme"
         @mode-changed="setMode"
+        @open-profile="openProfile"
       ></lobby-view>
+
+      <!-- PROFILE VIEW -->
+      <profile-view
+        ref="profile"
+        v-show="view === 'profile'"
+        :profile="profile"
+        :my-name="myName"
+        @close="closeProfile"
+        @open-avatar="openAvatarDialog"
+      ></profile-view>
 
       <!-- ROOM VIEW -->
       <room-view
@@ -344,6 +356,9 @@
       <!-- GLOBAL ADMIN PRIVATE MESSAGE MODAL (full screen, replaces the toast) -->
       <admin-message-dialog></admin-message-dialog>
 
+      <!-- GLOBAL AVATAR STUDIO DIALOG (opened from the profile page) -->
+      <avatar-dialog></avatar-dialog>
+
       <audio id="messageTone" src="assets/notify.mp3" preload="auto"></audio>
       <audio
         id="serverMessageTone"
@@ -365,6 +380,7 @@
 
     <script src="components/auth-view.js"></script>
     <script src="components/lobby-view.js"></script>
+    <script src="components/profile-view.js"></script>
     <script src="components/room-view.js"></script>
     <script src="components/tictactoe-view.js"></script>
     <script src="components/pizza-view.js"></script>
@@ -375,6 +391,7 @@
     <script src="components/chat-view.js"></script>
     <script src="components/howto-dialog.js"></script>
     <script src="components/admin-message-dialog.js"></script>
+    <script src="components/avatar-dialog.js"></script>
 
     <script src="main.js"></script>
   </body>

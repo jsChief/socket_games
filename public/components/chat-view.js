@@ -2,6 +2,14 @@ Vue.component("chat-view", {
       data() {
             return {
                   chatOpen: false,
+                  view: "list", // list | general | dm
+                  activeKey: "general",
+                  onlinePlayers: [],
+                  selfSocketId: "",
+                  myUid: "",
+                  dmChats: {}, // name-keyed -> { key, player, messages[], typingName, input }
+                  dmUnread: {}, // name-keyed -> count
+                  generalUnread: 0,
                   messages: [],
                   typingName: "",
                   replyTarget: null,
@@ -28,29 +36,84 @@ Vue.component("chat-view", {
             };
       },
       computed: {
-            meLabel() {
-                  return this.meSymbol ? "[" + this.meSymbol + "] me" : "me";
+            chatInput: {
+                  get() {
+                        if (this.view === "dm" && this.activeDm)
+                              return this.activeDm.input || "";
+                        return this.inputValue;
+                  },
+                  set(val) {
+                        if (this.view === "dm" && this.activeDm)
+                              this.activeDm.input = val;
+                        else this.inputValue = val;
+                  },
             },
-            meClass() {
-                  let c = "px-2 py-0.5 text-sm rounded-xl ";
-                  if (this.meHighlighted) {
-                        c += "bg-yellow-300 text-black font-bold";
-                  } else {
-                        c += this.meSymbol
-                              ? "bg-green-600 text-white"
-                              : "bg-orange-600 text-orange-100";
-                  }
-                  return c;
+            activeTitle() {
+                  if (this.view === "list") return "Chat";
+                  if (this.view === "general") return "General chat";
+                  if (this.activeDm) return this.activeDm.player.name || "Private chat";
+                  return "Private chat";
             },
-            opponentClass() {
-                  if (!this.opponentLabel) {
-                        return "px-2 py-0.5 text-sm rounded-xl bg-transparent text-black";
+            activeMessages() {
+                  if (this.view === "general") return this.messages;
+                  if (this.view === "dm" && this.activeDm)
+                        return this.activeDm.messages;
+                  return [];
+            },
+            activeDm() {
+                  if (this.view !== "dm") return null;
+                  return this.dmChats[this.activeKey] || null;
+            },
+            dmOffline() {
+                  return (
+                        this.view === "dm" &&
+                        this.activeDm &&
+                        !this.activeDm.player.online
+                  );
+            },
+            activeTypingName() {
+                  if (this.view === "dm" && this.activeDm)
+                        return this.activeDm.typingName;
+                  return this.typingName;
+            },
+            generalEntry() {
+                  return {
+                        key: "general",
+                        type: "general",
+                        label: "General chat",
+                        subtitle: "Everyone on the server",
+                        icon: "💬",
+                        unread: this.generalUnread,
+                  };
+            },
+            onlineConvos() {
+                  return this.onlinePlayers.map((p) => ({
+                        key: p.name,
+                        type: "dm",
+                        player: this.makePlayer(p),
+                        online: true,
+                        unread: this.dmUnread[p.name] || 0,
+                  }));
+            },
+            offlineConvos() {
+                  const convs = [];
+                  const seen = {};
+                  for (const p of this.onlinePlayers)
+                        seen[p.name] = true;
+                  for (const key in this.dmChats) {
+                        if (seen[key]) continue;
+                        const conv = this.dmChats[key];
+                        if (conv.messages.length > 0) {
+                              convs.push({
+                                    key,
+                                    type: "dm",
+                                    player: conv.player,
+                                    online: false,
+                                    unread: this.dmUnread[key] || 0,
+                              });
+                        }
                   }
-                  let c = "px-2 py-0.5 text-sm rounded-xl ";
-                  c += this.opponentHighlighted
-                        ? "bg-yellow-300 text-black font-bold"
-                        : "bg-green-600 text-white";
-                  return c;
+                  return convs;
             },
       },
       watch: {
@@ -91,6 +154,9 @@ Vue.component("chat-view", {
                   }
             },
             open() {
+                  this.view = "list";
+                  this.activeKey = "general";
+                  this.replyTarget = null;
                   this.chatOpen = true;
             },
             close() {
@@ -104,59 +170,298 @@ Vue.component("chat-view", {
                   }
                   return "";
             },
-            addMessage(text, custom, source) {
+            makeMessageObj(text, custom, source, replyTo) {
                   const isObj = typeof text === "object" && text !== null;
-                  const messageText = isObj
-                        ? this.normalizeText(text.text)
-                        : text;
-                  const replyText =
-                        isObj && text.replyTo
-                              ? this.normalizeText(text.replyTo)
-                              : null;
-                  this.messages.push({
+                  return {
                         id: ++this.messageIdCounter,
-                        text: messageText,
-                        replyTo: replyText,
+                        text: isObj
+                              ? this.normalizeText(text.text)
+                              : String(text == null ? "" : text),
+                        replyTo: isObj && text.replyTo
+                              ? this.normalizeText(text.replyTo)
+                              : replyTo
+                                    ? this.normalizeText(replyTo)
+                                    : null,
                         class: custom,
                         source,
                         time: new Date().toLocaleTimeString(),
-                  });
+                  };
+            },
+            addMessage(text, custom, source) {
+                  this.messages.push(
+                        this.makeMessageObj(text, custom, source),
+                  );
                   this.scrollToBottom();
             },
             receiveUserMessage(message) {
-                  const isObj = typeof message === "object" && message !== null;
-                  const messageText = isObj
-                        ? this.normalizeText(message.text)
-                        : message;
-                  const replyText =
-                        isObj && message.replyTo
-                              ? this.normalizeText(message.replyTo)
-                              : null;
-                  this.messages.push({
-                        id: ++this.messageIdCounter,
-                        text: messageText,
-                        replyTo: replyText,
-                        class: "rounded-r-xl rounded-bl-xl bg-gray-200 text-slate-700 ",
-                        source: "other",
-                        time: new Date().toLocaleTimeString(),
-                  });
-                  if (!this.chatOpen) this.$emit("new-message");
+                  this.messages.push(
+                        this.makeMessageObj(
+                              message,
+                              "rounded-r-xl rounded-bl-xl bg-gray-200 text-slate-700 ",
+                              "other",
+                        ),
+                  );
+                  const isActive =
+                        this.chatOpen && this.view === "general";
+                  if (!isActive) {
+                        this.generalUnread += 1;
+                        if (!this.chatOpen) this.$emit("new-message");
+                  }
                   messageTone.play();
+                  this.scrollToBottom();
+            },
+            makePlayer(p) {
+                  return {
+                        id: p && p.id,
+                        uid: p && (p.uid || p.persistentUserId || ""),
+                        name: p && p.name,
+                        avatarUrl: p && p.avatarUrl,
+                        roomCode: p && p.roomCode,
+                        game: p && p.game,
+                        online: true,
+                  };
+            },
+            ensureDmChat(id, name, player) {
+                  const key = String(name || "Unknown");
+                  const stored = this.dmChats[key];
+                  if (stored) {
+                        if (player) stored.player = player;
+                        return stored;
+                  }
+                  const conv = {
+                        key,
+                        player:
+                              player ||
+                              this.makePlayer({
+                                    id: id || "",
+                                    name,
+                                    avatarUrl: null,
+                              }),
+                        messages: [],
+                        typingName: "",
+                        input: "",
+                        historyLoaded: false,
+                  };
+                  this.$set(this.dmChats, key, conv);
+                  return conv;
+            },
+            setSelfSocket(id, uid) {
+                  this.selfSocketId = id || "";
+                  this.myUid = uid || "";
+            },
+            setOnlinePlayers(list) {
+                  const all = Array.isArray(list) ? list : [];
+                  this.onlinePlayers = all.filter(
+                        (p) => p.id !== this.selfSocketId,
+                  );
+                  const byName = {};
+                  for (const p of this.onlinePlayers)
+                        byName[p.name] = p;
+                  for (const key in this.dmChats) {
+                        if (byName[key])
+                              this.dmChats[key].player = this.makePlayer(
+                                    byName[key],
+                              );
+                        else this.dmChats[key].player.online = false;
+                  }
+            },
+            setPrivateTyping(data) {
+                  let conv = data && data.fromName
+                        ? this.dmChats[data.fromName] || null
+                        : null;
+                  if (!conv && data && data.fromUid) {
+                        for (const key in this.dmChats) {
+                              if (this.dmChats[key].player.uid === data.fromUid) {
+                                    conv = this.dmChats[key];
+                                    break;
+                              }
+                        }
+                  }
+                  if (!conv) return;
+                  conv.typingName =
+                        data && data.isTyping
+                              ? conv.player.name || data.fromName
+                              : "";
+            },
+            receivePrivateMessage(data) {
+                  const fromName = (data && data.fromName) || "Player";
+                  const conv = this.ensureDmChat(
+                        data && data.fromId,
+                        fromName,
+                  );
+                  if (data && data.fromUid) conv.player.uid = data.fromUid;
+                  conv.messages.push(
+                        this.makeMessageObj(
+                              (data && data.text) || "",
+                              "rounded-r-xl rounded-bl-xl bg-gray-200 text-slate-700 ",
+                              "other",
+                              (data && data.replyTo) || null,
+                        ),
+                  );
+                  const isActive =
+                        this.chatOpen &&
+                        this.view === "dm" &&
+                        this.activeKey === conv.key;
+                  if (!isActive) {
+                        this.$set(
+                              this.dmUnread,
+                              conv.key,
+                              (this.dmUnread[conv.key] || 0) + 1,
+                        );
+                        if (!this.chatOpen) this.$emit("new-message");
+                  }
+                  messageTone.play();
+                  this.scrollToBottom();
+            },
+            clearDmUnread(key) {
+                  this.$set(this.dmUnread, key, 0);
+            },
+            openGeneral() {
+                  this.view = "general";
+                  this.activeKey = "general";
+                  this.generalUnread = 0;
+                  this.replyTarget = null;
+                  this.$nextTick(() => this.scrollToBottom());
+            },
+            openDm(p) {
+                  if (!p) return;
+                  const conv = this.ensureDmChat(
+                        p.id,
+                        p.name,
+                        this.makePlayer(p),
+                  );
+                  this.view = "dm";
+                  this.activeKey = conv.key;
+                  this.clearDmUnread(conv.key);
+                  this.replyTarget = null;
+                  this.requestHistory(conv);
+                  this.$nextTick(() => this.scrollToBottom());
+            },
+            openOfflineDm(key) {
+                  if (!this.dmChats[key]) return;
+                  const conv = this.dmChats[key];
+                  this.view = "dm";
+                  this.activeKey = key;
+                  this.clearDmUnread(key);
+                  this.replyTarget = null;
+                  this.requestHistory(conv);
+                  this.$nextTick(() => this.scrollToBottom());
+            },
+            requestHistory(conv) {
+                  if (!conv.player.uid || conv.historyLoaded) return;
+                  conv.historyLoaded = true;
+                  socket.emit("join-private-chat", {
+                        partnerUid: conv.player.uid,
+                  });
+            },
+            receivePrivateHistory(data) {
+                  let conv = data && data.partnerName
+                        ? this.dmChats[data.partnerName] || null
+                        : null;
+                  if (!conv && data && data.partnerUid) {
+                        for (const key in this.dmChats) {
+                              if (this.dmChats[key].player.uid === data.partnerUid) {
+                                    conv = this.dmChats[key];
+                                    break;
+                              }
+                        }
+                  }
+                  if (!conv) return;
+                  if (data && data.partnerUid) conv.player.uid = data.partnerUid;
+                  if (data && data.partnerName) conv.player.name = data.partnerName;
+                  const msgs = (data && data.messages) || [];
+                  if (!Array.isArray(msgs) || msgs.length === 0) return;
+                  conv.messages = msgs.map((m) => {
+                        const mine = conv.player.uid
+                              ? m.fromUid !== conv.player.uid
+                              : m.fromUid === this.myUid;
+                        return {
+                              id: ++this.messageIdCounter,
+                              text: m.text || "",
+                              replyTo: m.replyTo || null,
+                              class: mine
+                                    ? "rounded-l-xl rounded-br-xl bg-orange-100 "
+                                    : "rounded-r-xl rounded-bl-xl bg-gray-200 text-slate-700 ",
+                              source: mine ? "me" : "other",
+                              time: m.at
+                                    ? new Date(m.at).toLocaleTimeString()
+                                    : "",
+                        };
+                  });
+                  this.scrollToBottom();
+            },
+            backToList() {
+                  this.view = "list";
+                  this.activeKey = "general";
+                  this.replyTarget = null;
+            },
+            currentChannel() {
+                  if (this.view === "dm" && this.activeDm) {
+                        return {
+                              type: "dm",
+                              id: this.activeDm.player.id,
+                              uid: this.activeDm.player.uid,
+                              online: this.activeDm.player.online,
+                        };
+                  }
+                  return { type: "general" };
+            },
+            sendPayload(payload, custom) {
+                  const ch = this.currentChannel();
+                  if (ch.type === "dm") {
+                        if (!ch.online) return;
+                        socket.emit("private-message", {
+                              to: ch.id,
+                              toUid: ch.uid || "",
+                              text: payload.text,
+                              replyTo: payload.replyTo || null,
+                              replyToId: payload.replyToId || null,
+                        });
+                        this.activeDm.messages.push(
+                              this.makeMessageObj(
+                                    payload,
+                                    custom,
+                                    "me",
+                                    payload.replyTo,
+                              ),
+                        );
+                  } else {
+                        socket.emit("user-message", payload);
+                        this.addMessage(payload, custom, "me");
+                  }
+                  this.replyTarget = null;
+                  this.stopTyping();
                   this.scrollToBottom();
             },
             setReplyTarget(messageData) {
                   this.replyTarget = messageData;
             },
             onInput() {
-                  socket.emit("user-typing", { isTyping: true });
                   clearTimeout(this.typingTimeout);
+                  if (this.view === "dm" && this.activeDm) {
+                        socket.emit("private-typing", {
+                              to: this.activeDm.player.id,
+                              toUid: this.activeDm.player.uid || "",
+                              isTyping: true,
+                        });
+                  } else {
+                        socket.emit("user-typing", { isTyping: true });
+                  }
                   this.typingTimeout = setTimeout(() => {
-                        socket.emit("user-typing", { isTyping: false });
+                        this.stopTyping();
                   }, 2000);
             },
             stopTyping() {
                   clearTimeout(this.typingTimeout);
-                  socket.emit("user-typing", { isTyping: false });
+                  if (this.view === "dm" && this.activeDm) {
+                        socket.emit("private-typing", {
+                              to: this.activeDm.player.id,
+                              toUid: this.activeDm.player.uid || "",
+                              isTyping: false,
+                        });
+                  } else {
+                        socket.emit("user-typing", { isTyping: false });
+                  }
             },
             sendEmoji(emoji) {
                   const payload = {
@@ -168,14 +473,10 @@ Vue.component("chat-view", {
                               ? this.replyTarget.id
                               : null,
                   };
-                  socket.emit("user-message", payload);
-                  this.addMessage(
+                  this.sendPayload(
                         payload,
                         "rounded-l-xl rounded-br-xl text-right bg-orange-100 text-slate-800 ",
-                        "me",
                   );
-                  this.replyTarget = null;
-                  this.stopTyping();
             },
             sendQuick(text) {
                   const payload = {
@@ -187,43 +488,39 @@ Vue.component("chat-view", {
                               ? this.replyTarget.id
                               : null,
                   };
-                  socket.emit("user-message", payload);
-                  this.addMessage(
+                  this.sendPayload(
                         payload,
                         "rounded-l-xl rounded-br-xl text-right bg-orange-100 text-slate-800 ",
-                        "me",
                   );
-                  this.replyTarget = null;
-                  this.stopTyping();
             },
             sendMessage() {
-                  if (this.inputValue === "") return;
-                  let splitMsg = this.inputValue.split(" ");
-                  if (splitMsg[0] == "/name") {
-                        socket.emit("set-name", {
-                              name: splitMsg[1],
-                              persistentUserId: persistentUserId,
-                        });
-                  } else {
-                        const payload = {
-                              text: this.inputValue,
-                              replyTo: this.replyTarget
-                                    ? this.replyTarget.text
-                                    : null,
-                              replyToId: this.replyTarget
-                                    ? this.replyTarget.id
-                                    : null,
-                        };
-                        socket.emit("user-message", payload);
-                        this.addMessage(
-                              payload,
-                              "rounded-l-xl rounded-br-xl bg-orange-100 ",
-                              "me",
-                        );
-                        this.replyTarget = null;
-                        this.stopTyping();
+                  const raw = this.chatInput || "";
+                  if (raw.trim() === "") return;
+                  if (this.view === "general") {
+                        let splitMsg = raw.split(" ");
+                        if (splitMsg[0] == "/name") {
+                              socket.emit("set-name", {
+                                    name: splitMsg[1],
+                                    persistentUserId: persistentUserId,
+                              });
+                              this.chatInput = "";
+                              return;
+                        }
                   }
-                  this.inputValue = "";
+                  const payload = {
+                        text: raw,
+                        replyTo: this.replyTarget
+                              ? this.replyTarget.text
+                              : null,
+                        replyToId: this.replyTarget
+                              ? this.replyTarget.id
+                              : null,
+                  };
+                  this.sendPayload(
+                        payload,
+                        "rounded-l-xl rounded-br-xl bg-orange-100 ",
+                  );
+                  this.chatInput = "";
             },
             setMe(symbol) {
                   this.meSymbol = symbol;
@@ -291,18 +588,24 @@ Vue.component("chat-view", {
                               <div class="deco-circle -bottom-10 left-10 size-20"></div>
                               <div class="relative z-10 flex items-center justify-between gap-2">
                                     <div class="flex min-w-0 items-center gap-2">
-                                          <span class="text-2xl">💬</span>
-                                          <span class="whitespace-nowrap text-xl font-black">Chat</span>
+                                          <button v-if="view !== 'list'" @click="backToList" title="Back to conversations"
+                                                class="btn-bubble grid size-9 shrink-0 place-items-center rounded-xl bg-white/25 text-lg font-black hover:bg-white/35">
+                                                <i class="fa fa-caret-left"></i>
+                                          </button>
+                                          <span v-else class="text-2xl">💬</span>
+                                          <div class="min-w-0">
+                                                <div class="max-w-[42vw] truncate whitespace-nowrap text-xl font-black leading-none">{{ activeTitle }}</div>
+                                                <div v-if="view === 'list'" class="mt-0.5 text-xs font-bold text-white/85">
+                                                      General chat &amp; players
+                                                </div>
+                                                <div v-else-if="view === 'dm'" class="mt-0.5 text-xs font-bold text-white/85">
+                                                      {{ dmOffline ? "Offline" : "Private chat" }}
+                                                </div>
+                                                <div v-else class="mt-0.5 text-xs font-bold text-white/85">
+                                                      Everyone on the server
+                                                </div>
+                                          </div>
                                     </div>
-                                    <!-- <div class="flex items-center gap-2">
-                                          <span class="px-2 py-0.5 text-sm rounded-xl whitespace-nowrap"
-                                                :class="opponentClass">
-                                                {{ opponentLabel || "player 2" }}
-                                          </span>
-                                          <span class="px-2 py-0.5 text-sm rounded-xl whitespace-nowrap" :class="meClass">
-                                                {{ meLabel }}
-                                          </span>
-                                    </div> -->
                                     <button @click="close" title="Close chat"
                                           class="btn-bubble grid size-9 shrink-0 place-items-center rounded-xl bg-white/25 text-lg font-black">
                                           ✕
@@ -310,10 +613,83 @@ Vue.component("chat-view", {
                               </div>
                         </div>
 
-                        <div class="flex min-h-0 flex-1 flex-col p-2">
+                        <!-- conversation list -->
+                        <div v-if="view === 'list'"
+                              class="flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar p-2">
+                              <button @click="openGeneral"
+                                    class="w-full mb-1.5 flex items-center gap-3 rounded-2xl border border-white/40 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-orange-100">
+                                    <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-100 text-xl">💬</span>
+                                    <span class="min-w-0 flex-1">
+                                          <span class="block font-black">{{ generalEntry.label }}</span>
+                                          <span class="block truncate text-xs font-bold text-slate-500">{{ generalEntry.subtitle }}</span>
+                                    </span>
+                                    <span v-if="generalEntry.unread"
+                                          class="grid size-6 shrink-0 place-items-center rounded-full bg-red-500 text-xs font-black text-white">
+                                          {{ generalEntry.unread }}
+                                    </span>
+                              </button>
+
+                              <p class="px-2 pt-2 pb-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Online players ({{ onlinePlayers.length }})
+                              </p>
+                              <p v-if="onlinePlayers.length === 0" class="px-2 py-3 text-sm font-bold text-slate-500">
+                                    No one else is online right now.
+                              </p>
+                              <button v-for="p in onlineConvos" :key="p.key" @click="openDm(p.player)"
+                                    class="w-full mb-1.5 flex items-center gap-3 rounded-2xl border border-white/40 bg-white/70 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-orange-100">
+                                    <span class="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/70 text-xl">
+                                          <img v-if="p.player.avatarUrl" :src="p.player.avatarUrl" alt=""
+                                                class="size-9 rounded-lg object-cover" />
+                                          <i v-else class="fa fa-user text-slate-400"></i>
+                                          <span
+                                                class="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-green-500 ring-2 ring-white"></span>
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                          <span class="block truncate font-black">{{ p.player.name }}</span>
+                                          <span class="block truncate text-xs font-bold text-slate-500">
+                                                {{ p.player.roomCode ? "In room " + p.player.roomCode : p.player.game ? "Playing " + p.player.game : "In the lobby" }}
+                                          </span>
+                                    </span>
+                                    <span v-if="p.unread"
+                                          class="grid size-6 shrink-0 place-items-center rounded-full bg-red-500 text-xs font-black text-white">
+                                          {{ p.unread }}
+                                    </span>
+                              </button>
+
+                              <div v-if="offlineConvos.length">
+                                    <p class="px-2 pt-2 pb-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                                          Recent chats
+                                    </p>
+                                    <button v-for="c in offlineConvos" :key="c.key" @click="openOfflineDm(c.key)"
+                                          class="w-full mb-1.5 flex items-center gap-3 rounded-2xl border border-white/40 bg-white/50 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-orange-100">
+                                          <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-white/70 text-xl">
+                                                <i class="fa fa-user-slash text-slate-400"></i>
+                                          </span>
+                                          <span class="min-w-0 flex-1">
+                                                <span class="block truncate font-black">{{ c.player.name }}</span>
+                                                <span class="block truncate text-xs font-bold text-slate-500">
+                                                      Offline{{ c.unread ? " · " + c.unread + " new" : "" }}
+                                                </span>
+                                          </span>
+                                          <span v-if="c.unread"
+                                                class="grid size-6 shrink-0 place-items-center rounded-full bg-red-500 text-xs font-black text-white">
+                                                {{ c.unread }}
+                                          </span>
+                                    </button>
+                              </div>
+                        </div>
+
+                        <!-- conversation -->
+                        <div v-else class="flex min-h-0 flex-1 flex-col p-2">
                               <div ref="display"
                                     class="flex-1 min-h-0 w-full overflow-y-scroll rounded-2xl border border-white/40 bg-white/30 p-1">
-                                    <div v-for="m in messages" :key="m.id"
+                                    <div v-if="activeMessages.length === 0"
+                                          class="flex h-full items-center justify-center p-6 text-center">
+                                          <p class="text-sm font-bold text-slate-500">
+                                                {{ view === 'dm' ? 'Say hi 👋 (private)' : 'No messages yet — say hi 👋' }}
+                                          </p>
+                                    </div>
+                                    <div v-for="m in activeMessages" :key="m.id"
                                           class="w-full px-2 mt-[6px] flex"
                                           :class="'place-content-' + pos(m.source)">
                                           <div class="min-w-20 flex flex-col"
@@ -333,9 +709,9 @@ Vue.component("chat-view", {
                                           </div>
                                     </div>
                               </div>
-                              <div v-show="typingName"
+                              <div v-show="activeTypingName"
                                     class="mb-1 w-fit rounded-lg bg-yellow-200/80 px-2 py-1 text-xs italic text-black">
-                                    {{ typingName }} is typing...
+                                    {{ activeTypingName }} is typing...
                               </div>
                               <div v-if="replyTarget"
                                     class="mt-2 rounded-2xl border border-slate-200 bg-white/80 p-2 text-sm shadow-sm">
@@ -404,11 +780,12 @@ Vue.component("chat-view", {
                                     </div>
 
                                     <div class="h-fit w-full rounded-2xl flex items-center place-content-between">
-                                          <input placeholder="Type a message..." type="text" v-model="inputValue"
+                                          <input :placeholder="dmOffline ? 'Player is offline' : 'Type a message...'"
+                                                type="text" v-model="chatInput" :disabled="dmOffline"
                                                 @input="onInput" @keyup.enter="sendMessage"
-                                                class="min-w-0 flex-1 placeholder-gray-600 rounded-2xl border border-white/40 bg-white/70 p-2 h-10 shadow-sm focus:outline-none" />
-                                          <button @click="sendMessage"
-                                                class="btn-bubble grid size-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 fa fa-arrow-up text-xl text-white"></button>
+                                                class="min-w-0 flex-1 placeholder-gray-600 rounded-2xl border border-white/40 bg-white/70 p-2 h-10 shadow-sm focus:outline-none disabled:opacity-50" />
+                                          <button @click="sendMessage" :disabled="dmOffline"
+                                                class="btn-bubble grid size-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 fa fa-arrow-up text-xl text-white disabled:opacity-50"></button>
                                     </div>
                               </div>
                         </div>

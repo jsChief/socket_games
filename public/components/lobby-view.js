@@ -5,6 +5,7 @@ Vue.component("lobby-view", {
     socketId: { type: String, default: "" },
     theme: { type: String, default: "sunset" },
     mode: { type: String, default: "light" },
+    myAvatarUrl: { type: String, default: "" },
   },
   data() {
     return {
@@ -65,8 +66,8 @@ Vue.component("lobby-view", {
       if (this.connectionStatus === "disconnected") return "bg-red-300";
       return "bg-yellow-200 animate-pulse";
     },
-    myAvatarUrl() {
-      return avatarUrlFor(this.myName) || "";
+    myAvatarFallback() {
+      return (this.myName || "guest").charAt(0).toUpperCase();
     },
   },
   methods: {
@@ -111,12 +112,14 @@ Vue.component("lobby-view", {
                                           <p class="mt-0.5 truncate text-xs font-bold text-white/85">Pick a theme, then create or join a room!</p>
                                     </div>
                                     <div class="shrink-0">
-                                          <div class="flex items-center gap-1.5 rounded-full bg-white/25 py-0.5 pl-0.5 pr-2.5 text-xs font-black shadow-sm">
+                                          <button @click="$emit('open-profile')" title="View your profile"
+                                                class="flex max-w-full items-center gap-1.5 rounded-full bg-black/25 py-0.5 pl-0.5 pr-2 text-xs font-black shadow-sm transition-colors hover:bg-white/35 active:bg-white/40">
                                                 <img v-if="myAvatarUrl" :src="myAvatarUrl" alt="" class="lobby-avatar-sm" />
-                                                <span v-else class="lobby-avatar-sm lobby-avatar-fallback">{{ (myName || "guest").charAt(0).toUpperCase() }}</span>
+                                                <span v-else class="lobby-avatar-sm lobby-avatar-fallback">{{ myAvatarFallback }}</span>
                                                 <span class="truncate inline-block max-w-24">{{ myName || "guest" }}</span>
-                                          </div>
-                                          <div class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black"
+                                                <span class="fa fa-chevron-right text-[10px] text-white/90"></span>
+                                          </button>
+                                          <div class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black"
                                                 :class="connectionBadgeClass">
                                                 <span class="size-1.5 rounded-full" :class="connectionDotClass"></span>
                                                 {{ connectionStatusText }}
@@ -157,15 +160,18 @@ Vue.component("lobby-view", {
                                     <p v-if="onlinePlayers.length === 0" class="text-sm text-slate-500">
                                           No one is online right now.
                                     </p>
-                                    <div v-else class="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+                                    <div v-else class="flex flex-col gap-1.5 p-1 max-h-40 overflow-y-auto">
 <div v-for="p in onlinePlayers" :key="p.id"
-                                                  class="flex items-center gap-2 rounded-2xl bg-white/40 px-3 py-2 text-sm shadow-sm">
+                                                  class="flex items-center gap-2 rounded-2xl bg-white/40 px-3 py-2 text-sm shadow-sm"
+                                                  :class="p.id === socketId ? 'cursor-pointer ring-1 ring-orange-300 transition-colors hover:bg-white/60 active:bg-white/70' : ''"
+                                                  :title="p.id === socketId ? 'Tap to view your profile' : ''"
+                                                  @click="p.id === socketId && $emit('open-profile')">
                                                 <span class="size-2.5 shrink-0 rounded-full bg-green-500"></span>
                                                 <img v-if="p.avatarUrl" :src="p.avatarUrl" alt="" class="lobby-avatar" />
                                                 <span class="font-black">{{ p.name }}</span>
                                                 <span v-if="p.roomCode" class="ml-auto text-xs font-bold text-orange-700">room {{ p.roomCode }}</span>
-                                                <span v-else-if="p.id === socketId" class="ml-auto text-xs font-bold text-slate-500">
-                                                      (you)
+                                                <span v-else-if="p.id === socketId" class="ml-auto text-xs font-bold text-slate-600">
+                                                      (you) <i class="fa fa-chevron-right text-[10px]"></i>
                                                 </span>
                                           </div>
                                     </div>
@@ -201,6 +207,8 @@ Vue.component("lobby-view", {
                                     Your theme and light/dark mode are saved on this device.
                               </p>
                         </div>
+
+                        <div class="mt-3 h-24 md:hidden"></div>
                   </div>
             </div>
       `,

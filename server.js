@@ -13,6 +13,7 @@ const createRps = require("./lib/rps");
 const createConnect4 = require("./lib/connect4");
 const createBot = require("./lib/bot");
 const createAdmin = require("./lib/admin");
+const privateChat = require("./lib/privateChat");
 const avatars = require("./lib/avatars");
 const {
   hashPassword,
@@ -138,6 +139,19 @@ const saveAccounts = () => {
 // Load data when the server starts (before the game modules capture `stats`)
 loadStats();
 loadAccounts();
+
+// Keep public/avatars in sync with the accounts currently on file: drop avatar
+// files for removed accounts / stale test players. Anything dropped is simply
+// regenerated on demand if that player comes back online later.
+try {
+  const accountSlugs = Object.keys(accounts.accounts).map((k) =>
+    avatars.slugify(accounts.accounts[k].username || k),
+  );
+  const pruned = avatars.pruneAvatars(accountSlugs);
+  if (pruned > 0) console.log(`[avatar] pruned ${pruned} stale avatar file(s).`);
+} catch (e) {
+  console.error("[avatar] prune failed:", e);
+}
 
 // Create shared modules: room lifecycle + the two games. Each game module
 // receives only the io helpers it needs, so the games stay decoupled.
@@ -467,17 +481,31 @@ function leaveRoomHandler(socket) {
   io.emit("online-players", getOnlinePlayers());
 }
 
+// Only write avatar files for a player who genuinely is a registered account
+// (name AND persistentUserId match). Guests get the URL of an existing file
+// (if they configured one via Avatar Studio) or null. Read-only reports and
+// online-player broadcasts therefore never recreate avatar files for stale
+// guest names — e.g. a removed account's leftover tab coming back online, or
+// a random guest hijacking an account's display name.
+function avatarDisplayUrl(name, uid) {
+  const key = String(name || "").trim().toLowerCase();
+  const acc = accounts.accounts[key];
+  if (acc && acc.persistentUserId === uid) {
+    return avatars.ensureAvatar(name, { uid });
+  }
+  return avatars.avatarUrlIfExists(name, { uid });
+}
+
 function getOnlinePlayers() {
   return players
     .filter((p) => p.online && !p.isBot)
     .map((p) => ({
       id: p.id,
+      uid: p.persistentUserId,
       name: p.name,
       game: p.game,
       roomCode: p.roomCode,
-      avatarUrl: accounts.accounts[(p.name || "").toLowerCase()]
-        ? avatars.ensureAvatar(p.name)
-        : null,
+      avatarUrl: avatarDisplayUrl(p.name, p.persistentUserId),
     }));
 }
 
@@ -654,7 +682,7 @@ io.on("connection", (socket) => {
     const key = token && accounts.tokens[token];
     if (key && accounts.accounts[key]) {
       const acc = accounts.accounts[key];
-      avatars.ensureAvatar(acc.username);
+      avatars.ensureAvatar(acc.username, { uid: acc.persistentUserId });
       socket.emit("auth-success", {
         token,
         username: acc.username,
@@ -696,7 +724,7 @@ io.on("connection", (socket) => {
     const token = generateToken();
     accounts.tokens[token] = key;
     saveAccounts();
-    avatars.ensureAvatar(username);
+    avatars.ensureAvatar(username, { uid: persistentUserId });
 
     socket.emit("auth-success", { token, username, persistentUserId });
     connectPlayer(socket, { persistentUserId, name: username });
@@ -715,7 +743,7 @@ io.on("connection", (socket) => {
     const token = generateToken();
     accounts.tokens[token] = key;
     saveAccounts();
-    avatars.ensureAvatar(acc.username);
+    avatars.ensureAvatar(acc.username, { uid: acc.persistentUserId });
 
     socket.emit("auth-success", {
       token,
@@ -774,6 +802,126 @@ io.on("connection", (socket) => {
       // This is a new player trying to set a name for the first time
       addNewPlayer(socket, name.trim(), persistentUserId);
     }
+  });
+
+  // -------- Profile (own stats + account info) --------
+  socket.on("get-profile", () => {
+    const player = players.find((p) => p.id === socket.id);
+    if (!player || !player.persistentUserId) return;
+    const uid = player.persistentUserId;
+    const account = accounts.accounts[
+      (player.name || "").toLowerCase()
+    ] || (function () {
+      for (const key of Object.keys(accounts.accounts)) {
+        if (accounts.accounts[key].persistentUserId === uid) {
+          return accounts.accounts[key];
+        }
+      }
+      return null;
+    })();
+    const s = stats.players[uid] || {
+      wins: 0,
+      losses: 0,
+      draws: 0,
+    };
+    const wins = s.wins || 0;
+    const losses = s.losses || 0;
+    const draws = s.draws || 0;
+    const total = wins + losses + draws;
+    const avatarSettings = avatars.getAvatarSettings(uid) || {};
+    const avatarColor = avatars.sanitizeColor(
+      avatarSettings.color !== undefined ? avatarSettings.color : avatarSettings.hue,
+    );
+    const avatarPattern = avatarSettings.pattern || "random";
+    socket.emit("my-profile", {
+      name: player.name,
+      uid,
+      username: account ? account.username : null,
+      avatarUrl: account
+        ? avatars.ensureAvatar(account.username, {
+            uid,
+            color: avatarColor,
+            pattern: avatarPattern,
+          })
+        : avatars.ensureAvatar(player.name, {
+            uid,
+            color: avatarColor,
+            pattern: avatarPattern,
+          }),
+      avatar: {
+        color: avatarColor != null ? avatarColor : avatars.baseHueOf(player.name),
+        pattern: avatarPattern,
+      },
+      stats: {
+        wins,
+        losses,
+        draws,
+        total,
+        winRate: total ? Math.round((wins / total) * 1000) / 10 : 0,
+      },
+    });
+  });
+
+  socket.on("set-avatar", (data) => {
+    const player = players.find((p) => p.id === socket.id);
+    if (!player || !player.persistentUserId) return;
+    const rawColor =
+      data && data.color !== undefined && data.color !== null
+        ? data.color
+        : data && typeof data.hue === "number"
+          ? data.hue
+          : null;
+    const color = avatars.sanitizeColor(rawColor);
+    const pattern = avatars.sanitizePattern(data && data.pattern);
+    const finalColor = color != null ? color : avatars.baseHueOf(player.name);
+    const finalPattern = pattern || "random";
+    avatars.setAvatarSettings(player.persistentUserId, {
+      color: finalColor,
+      pattern: finalPattern,
+    });
+    const account = (function () {
+      for (const key of Object.keys(accounts.accounts)) {
+        if (accounts.accounts[key].persistentUserId === player.persistentUserId) {
+          return accounts.accounts[key];
+        }
+      }
+      return null;
+    })();
+    if (account) {
+      avatars.ensureAvatar(account.username, {
+        uid: player.persistentUserId,
+        color: finalColor,
+        pattern: finalPattern,
+      });
+    }
+    socket.emit("my-avatar", {
+      avatarUrl: avatars.ensureAvatar(player.name, {
+        uid: player.persistentUserId,
+        color: finalColor,
+        pattern: finalPattern,
+      }),
+      color: finalColor,
+      pattern: finalPattern,
+    });
+    // Drop superseded variants so repeated studio saves don't accumulate
+    // old avatar PNGs for the same player.
+    if (
+      !account ||
+      avatars.slugify(account.username) === avatars.slugify(player.name)
+    ) {
+      const removedCount = avatars.pruneAvatarVariants(
+        player.name,
+        finalColor,
+        finalPattern,
+      );
+      if (removedCount > 0) {
+        console.log(
+          `[avatar] ${player.name} pruned ${removedCount} stale variant(s).`,
+        );
+      }
+    }
+    io.emit("online-players", getOnlinePlayers());
+    console.log(`[avatar] ${player.name} set color=${finalColor} pattern=${finalPattern}`);
   });
 
   socket.on("new-user", (name) => {
@@ -935,6 +1083,93 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("opponent-typing", {
       isTyping: data.isTyping,
       name,
+    });
+  });
+
+  // -------- Private chat (player-to-player) --------
+  socket.on("private-message", (data) => {
+    const from = players.find((p) => p.id === socket.id);
+    if (!from || !from.online || from.isBot) return;
+    const text = String((data && data.text) || "").trim();
+    if (!text) return;
+    const target =
+      players.find(
+        (p) =>
+          p.persistentUserId === (data && data.toUid) &&
+          p.online &&
+          !p.isBot,
+      ) ||
+      players.find(
+        (p) => p.id === (data && data.to) && p.online && !p.isBot,
+      );
+    if (!target) return;
+    const saved = privateChat.addMessage(
+      from.persistentUserId,
+      target.persistentUserId,
+      from.persistentUserId,
+      from.name,
+      text,
+      (data && data.replyTo) || null,
+    );
+    io.to(target.id).emit("private-message", {
+      fromId: socket.id,
+      fromUid: from.persistentUserId,
+      fromName: from.name,
+      text,
+      replyTo: saved.replyTo,
+      at: saved.at,
+    });
+    console.log("[dm] " + from.name + " → " + target.name + ": " + text);
+  });
+
+  socket.on("join-private-chat", (data) => {
+    const from = players.find((p) => p.id === socket.id);
+    if (!from || !from.persistentUserId) return;
+    const partnerUid = (data && data.partnerUid) || "";
+    if (!partnerUid) return;
+    if (partnerUid === from.persistentUserId) return;
+    const messages = privateChat.getMessages(
+      from.persistentUserId,
+      partnerUid,
+    );
+    const partner =
+      players.find((p) => p.persistentUserId === partnerUid && !p.isBot) ||
+      null;
+    const lastPartnerMsg = partner
+      ? null
+      : messages
+            .slice()
+            .reverse()
+            .find((m) => m.fromUid === partnerUid);
+    socket.emit("private-history", {
+      partnerUid,
+      partnerName: partner
+        ? partner.name
+        : lastPartnerMsg
+          ? lastPartnerMsg.fromName
+          : "",
+      messages,
+    });
+  });
+
+  socket.on("private-typing", (data) => {
+    const from = players.find((p) => p.id === socket.id);
+    const target =
+      players.find(
+        (p) =>
+          p.persistentUserId === (data && data.toUid) &&
+          p.online &&
+          !p.isBot,
+      ) ||
+      players.find(
+        (p) => p.id === (data && data.to) && p.online && !p.isBot,
+      );
+    if (!from || !target) return;
+    io.to(target.id).emit("private-typing", {
+      fromId: socket.id,
+      fromUid: from.persistentUserId,
+      fromName: from.name,
+      isTyping: !!(data && data.isTyping),
     });
   });
 
