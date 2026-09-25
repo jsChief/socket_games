@@ -66,3 +66,35 @@
 .help-bounce {
   animation: help-bounce 1.6s ease-in-out 2;
 }
+
+/* Pixel-art profile avatars (see lib/avatars.js) */
+.lobby-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+/* Small circular avatar used inside the lobby header pill */
+.lobby-avatar-sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+/* Initial-letter fallback when a guest has no avatar yet */
+.lobby-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}

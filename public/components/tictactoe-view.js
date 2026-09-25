@@ -177,7 +177,7 @@ Vue.component("tictactoe-view", {
             openHelp() {
                   openHowTo({
                         icon: "⭕",
-                        title: "Tic Tac Toe",
+                        title: "Christies Tic Tac Toe",
                         tagline: "Three in a row wins!",
                         accent: "from-rose-500 to-orange-400",
                         steps: [
@@ -217,20 +217,20 @@ Vue.component("tictactoe-view", {
       template: `
             <div class="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
                   <!-- Header -->
-                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-500 to-orange-400 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
-                        <div class="deco-circle -right-6 -top-10 size-32"></div>
-                        <div class="deco-circle -bottom-12 left-8 size-24"></div>
-                        <div class="relative z-10 flex items-center gap-8 lg:gap-3">
-                              <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">⭕</span>
-                              <div class="lg:flex lg:w-full lg:place-content-between">
-                                    <div class="min-w-0 flex-1">
-                                    <h1 class="text-3xl font-black leading-none">Tic Tac Toe</h1>
-                                    <p class="mt-1 text-sm font-bold text-white/85">Three in a row wins!</p>
-                              </div>
-                              <button @click="openHelp"
-                                    class="btn-bubble shrink-0 rounded-2xl bg-white/25 px-3 py-2 text-sm font-black hover:bg-white/35">
-                                    ❓ How to play
-                              </button>
+                  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-500 to-orange-400 px-4 py-3 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="deco-circle -right-6 -top-10 size-28"></div>
+                        <div class="deco-circle -bottom-12 left-8 size-20"></div>
+                        <div class="relative z-10 flex items-center gap-3">
+                              <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/25 text-2xl shadow-lg">⭕</span>
+                              <div class="min-w-0 flex-1 leading-tight">
+                                    <h1 class="min-w-0 flex-1 truncate text-lg sm:text-xl font-black leading-none">Christies Tic Tac Toe</h1>
+                                    <div class="md:flex items-center gap-2 mt-2 place-content-between">
+                                          <p class="hidden md:block mt-0.5 truncate text-xs font-bold text-white/85">Three in a row wins!</p>
+                                          <button @click="openHelp"
+                                                class="btn-bubble shrink-0 rounded-xl bg-white/25 px-2.5 py-1.5 text-xs font-black hover:bg-white/35">
+                                                ❓ How to play
+                                          </button>
+                                    </div>
                               </div>
                         </div>
                   </div>

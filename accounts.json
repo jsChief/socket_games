@@ -41,6 +41,18 @@
       "salt": "273c2094a6f58f50f3166fc28494a871",
       "hash": "f0fc8695c979d4de98e5854336ba31cc8b9d63345a8fd7bb704e0f40900f3ef6ef8f5ccdab708b6e197d135512e6000745e8125629b78e4777b2f5166ff5ae4d",
       "persistentUserId": "d0ebdcd0-5c75-4ffe-864a-5e0e22e12b46"
+    },
+    "cole_one21": {
+      "username": "Cole_one21",
+      "salt": "526b922118e1dd1b8be8b62da0a76468",
+      "hash": "f9a6f2c909ed590bb0350ebff25d46fd657f694af213d1075ad3a0fbfef88662c01ca18550b783c7cf81eed41837885de3539444259365d85157e167afc72006",
+      "persistentUserId": "0b204487-8908-44ab-803c-882461c3393a"
+    },
+    "chris": {
+      "username": "Chris",
+      "salt": "87dc89934f402131dfcb9da3c8d7f24e",
+      "hash": "6dadb8adcbf3d81f4463f4ce03e3382803eb1b967019d7b3d1ae37a76ed91826e09fb1a0c1c625534c438601d6d156212be212302508e2090deea40960ab2fd0",
+      "persistentUserId": "9e73fb81-ba6c-4f12-af72-dd9b51807bf2"
     }
   },
   "tokens": {
@@ -53,6 +65,9 @@
     "fa0086082f91e0d5f65b315ccca01c51e2626721c4cd7470cd3586aa85c39743": "david",
     "a5ee2fac0f4706b93eac7ebc09cf442899acc632f2eb79e7c8176d3e2696f7fb": "james o",
     "62765eb330b7367ebdce0f19e302f2a16b297aa3b3a332ded9ca58bdf999ddd9": "wp360",
-    "2b7b1c45929e114bde6b0bf4107ce551a32b9c1b1b4b83c24efb2ca58ec8c448": "cole_one2"
+    "2b7b1c45929e114bde6b0bf4107ce551a32b9c1b1b4b83c24efb2ca58ec8c448": "cole_one2",
+    "a07efb0afb7b47b64a0c355e255cae3cd87c36629f29a855aeecc670d48d1648": "james o",
+    "fe11e6e35095e2c65fd7533915b6cb470d5da2e9ec38fa3ce6b5cded524e5c44": "cole_one21",
+    "d0625b5803a712f15e32e051ba77e53b1b89a935c9250a891f8312940454dea5": "chris"
   }
 }

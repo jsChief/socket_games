@@ -1,13 +1,23 @@
 const socketUrls = [
        //wp-360
+      "https://fond-dory-suitable.ngrok-free.app",
       "http://192.168.0.180:3000",
       "http://192.168.43.219:3000", //wp-360
-      "https://fond-dory-suitable.ngrok-free.app",
       "http://192.168.0.139:3000",
       "http://localhost:3000",
 ];
 var socket = null;
 var currentSocketUrlIndex = 0;
+
+// Deterministic pixel-art avatar URL for a name (must match lib/avatars.js).
+function avatarUrlFor(name) {
+      const slug = String(name || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 40);
+      return "/avatars/" + (slug || "guest") + ".png";
+}
 
 var app = new Vue({
       el: "#app",
@@ -198,6 +208,7 @@ function connectSocket() {
       socket.on("auth-success", (data) => {
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("authUsername", data.username || "");
+            app.myName = data.username || app.myName;
             const saved = sessionStorage.getItem("view");
             app.view = ["tictactoe", "pizza", "reversi", "rps", "connect4", "spectator", "room"].includes(saved)
                   ? saved
@@ -318,6 +329,43 @@ function connectSocket() {
                         "rounded-xl bg-yellow-100 text-center text-yellow-600 ",
                         "server",
                   );
+      });
+
+      // -------- Admin panel handlers --------
+      socket.on("admin-announce", (data) => {
+            serverMessageTone.play();
+            const text = (data && data.text) || "";
+            showToast("📢 " + text, "turn");
+            if (app.$refs.chat)
+                  app.$refs.chat.addMessage(
+                        "📢 ANNOUNCEMENT — " + text,
+                        "rounded-xl bg-red-100 text-center text-red-600 font-bold ",
+                        "server",
+                  );
+      });
+
+      socket.on("admin-message", (data) => {
+            serverMessageTone.play();
+            const text = (data && data.text) || "";
+            showAdminMessage("🛡️ " + text);
+            if (app.$refs.chat)
+                  app.$refs.chat.addMessage(
+                        "🛡 " + text,
+                        "rounded-xl bg-amber-100 text-center text-amber-700 font-bold ",
+                        "server",
+                  );
+      });
+
+      socket.on("admin-room-closed", () => {
+            showToast("🔒 Room closed by an admin. Returning to lobby.", "error");
+            app.goLobby();
+      });
+
+      socket.on("admin-kicked", (data) => {
+            serverMessageTone.play();
+            const reason = (data && data.reason) || "You were removed by an admin.";
+            showToast("🚫 " + reason, "error");
+            app.goLobby();
       });
 
       // -------- Pizza game socket handlers --------

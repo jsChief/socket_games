@@ -76,7 +76,7 @@ Vue.component("auth-view", {
           <span class="size-2 rounded-full" :class="connectionDotClass"></span>
           {{ connectionStatusText }}
         </p>
-        <p class="text-3xl text-center font-bold">Games Lobby</p>
+        <p class="text-2xl text-center font-bold">Games Lobby</p>
         <p class="text-sm text-center text-slate-600 mt-1 mb-4">
           Log in or create an account to play
         </p>

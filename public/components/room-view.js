@@ -15,7 +15,7 @@ Vue.component("room-view", {
                         {
                               id: "tictactoe",
                               icon: "⭕",
-                              name: "Tic Tac Toe",
+                              name: "Christies Tic Tac Toe",
                               desc: "Classic 2-player Xs and Os.",
                               status: "Available",
                               disabled: false,
@@ -213,26 +213,21 @@ Vue.component("room-view", {
       template: `
             <div class="h-full overflow-y-auto no-scrollbar">
                   <!-- Sticky header zone -->
-                  <div class="sticky top-0 z-[40] w-full bg-whie/60 px-3 pt-4 pb-2 shdow-[0_4px_16px_rgba(0,0,0,0.12)]">
+                  <div class="sticky top-0 z-[40] w-full px-2 pt-3 pb-2 shadw-[0_4px_16px_rgba(0,0,0,0.12)]">
                         <div class="mx-auto max-w-4xl">
-                              <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
-                                    <div class="deco-circle -right-6 -top-10 size-32"></div>
-                                    <div class="deco-circle -bottom-12 left-8 size-24"></div>
-                                    <div class="relative z-10 lg:flex items-center place-content-between gap-3">
-                                          <div class="flex items-center gap-3">
-                                                <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">🎮</span>
-                                          <div class="min-w-0 flex-1">
-                                                <h1 class="text-3xl font-black leading-none">Game Room</h1>
-                                                <p class="mt-1 text-sm font-bold text-white/85">Invite a friend — share your room code!</p>
+                              <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 px-4 py-3 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                                    <div class="deco-circle -right-6 -top-10 size-28"></div>
+                                    <div class="deco-circle -bottom-12 left-8 size-20"></div>
+                                    <div class="relative z-10 flex items-center gap-3">
+                                          <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/25 text-2xl shadow-lg">🎮</span>
+                                          <div class="min-w-0 flex-1 leading-tight">
+                                                <h1 class="truncate text-lg sm:text-xl font-black leading-none">Game Room</h1>
+                                                <p class="mt-0.5 truncate text-xs font-bold text-white/85">Invite a friend — share your room code!</p>
                                           </div>
-                                          </div>
-                                          <div class="shrink-0 text-center">
-                                                <div class="rounded-2xl bg-white/25 px-4 py-1.5 shadow-sm">
-                                                      <div class="text-xs font-black uppercase tracking-widest opacity-80">Code</div>
-                                                      <div class="text-2xl font-black tracking-[0.35em]">{{ room ? room.code : '…' }}</div>
-                                                </div>
+                                          <div class="shrink-0 text-right">
+                                                <div class="rounded-xl bg-white/25 px-3 py-1 text-sm font-black tracking-[0.25em] shadow-sm">{{ room ? room.code : '…' }}</div>
                                                 <button v-if="room" @click="copyCode" title="Copy invite"
-                                                      class="btn-bubble mt-1.5 w-full rounded-2xl bg-white/25 px-3 py-1 text-xs font-black">
+                                                      class="btn-bubble mt-1 w-full rounded-xl bg-white/25 px-2 py-1 text-[11px] font-black">
                                                       📋 Copy invite
                                                 </button>
                                           </div>
@@ -311,9 +306,9 @@ Vue.component("room-view", {
 
                               <!-- Games grid -->
                               <div class="mt-3 lg:mt-0 flex-1 rounded-3xl bg-white/60 p-4 shadow-[0_6px_0_rgba(0,0,0,0.14)]">
-                                    <p class="mb-3 text-center text-3xl font-black">Games 🎮</p>
+                                    <p class="mb-3 text-center text-xl font-black">Games 🎮</p>
                                     <div v-if="readyToPlay"
-                                          class="mb-3 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 py-3 text-center text-xl font-black text-white shadow-[0_5px_0_rgba(0,0,0,0.18)]">
+                                          class="mb-3 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 py-2.5 text-center text-sm font-black text-white shadow-[0_5px_0_rgba(0,0,0,0.18)]">
                                           👇 Pick a game
                                     </div>
                                     <div v-else
@@ -328,12 +323,12 @@ Vue.component("room-view", {
                                                       otherPicked(g) ? 'ring-4 ring-indigo-400 border-indigo-300' : '']"
                                                 class="rounded-3xl bg-white/50 p-3.5 shadow-[0_5px_0_rgba(0,0,0,0.12)] transition-all duration-200">
                                                 <div class="flex items-center gap-3">
-                                                      <span class="flex size-12 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-lg"
+                                                      <span class="flex size-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-lg"
                                                             :class="g.disabled ? 'bg-slate-200 text-slate-400' : 'bg-gradient-to-br text-white ' + g.accent">
                                                             {{ g.icon }}
                                                       </span>
                                                       <div class="min-w-0 flex-1">
-                                                            <div class="truncate text-lg font-black">{{ g.name }}</div>
+                                                            <div class="truncate text-base font-black">{{ g.name }}</div>
                                                             <div class="text-xs font-bold text-slate-600">{{ g.desc }}</div>
                                                       </div>
                                                 </div>

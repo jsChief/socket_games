@@ -65,8 +65,14 @@ Vue.component("lobby-view", {
       if (this.connectionStatus === "disconnected") return "bg-red-300";
       return "bg-yellow-200 animate-pulse";
     },
+    myAvatarUrl() {
+      return avatarUrlFor(this.myName) || "";
+    },
   },
   methods: {
+    avatarOf(name) {
+      return name ? avatarUrlFor(name) : "";
+    },
     setOnlinePlayers(list) {
       this.onlinePlayers = Array.isArray(list) ? list : [];
     },
@@ -95,22 +101,24 @@ Vue.component("lobby-view", {
                   <div class="mx-auto w-full max-w-4xl space-y-3 px-3 py-4">
 
                         <!-- Big gradient header -->
-                        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-pink-500 to-orange-400 px-5 py-4 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-pink-500 to-orange-400 px-4 py-3 text-white shadow-[0_8px_0_rgba(0,0,0,0.18)]">
                               <div class="deco-circle -right-6 -top-10 size-32"></div>
                               <div class="deco-circle -bottom-12 left-8 size-24"></div>
                               <div class="relative z-10 flex items-center gap-3">
-                                    <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/25 text-4xl shadow-lg">🎮</span>
-                                    <div class="min-w-0 flex-1">
-                                          <h1 class="text-3xl font-black leading-none">Games Lobby</h1>
-                                          <p class="mt-1 text-sm font-bold text-white/85">Pick a theme, then create or join a room!</p>
+                                    <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/25 text-2xl shadow-lg">🎮</span>
+                                    <div class="min-w-0 flex-1 leading-tight">
+                                          <h1 class="truncate text-xl font-black leading-none">Games Lobby</h1>
+                                          <p class="mt-0.5 truncate text-xs font-bold text-white/85">Pick a theme, then create or join a room!</p>
                                     </div>
-                                    <div class="shrink-0 text-right">
-                                          <div class="rounded-2xl bg-white/25 px-3 py-1 text-sm font-black shadow-sm">
-                                                <span class="truncate inline-block max-w-28">{{ myName || "guest" }}</span>
+                                    <div class="shrink-0">
+                                          <div class="flex items-center gap-1.5 rounded-full bg-white/25 py-0.5 pl-0.5 pr-2.5 text-xs font-black shadow-sm">
+                                                <img v-if="myAvatarUrl" :src="myAvatarUrl" alt="" class="lobby-avatar-sm" />
+                                                <span v-else class="lobby-avatar-sm lobby-avatar-fallback">{{ (myName || "guest").charAt(0).toUpperCase() }}</span>
+                                                <span class="truncate inline-block max-w-24">{{ myName || "guest" }}</span>
                                           </div>
-                                          <div class="mt-1.5 inline-flex items-center gap-1.5 rounded-xl px-2 py-0.5 text-xs font-black"
+                                          <div class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black"
                                                 :class="connectionBadgeClass">
-                                                <span class="size-2 rounded-full" :class="connectionDotClass"></span>
+                                                <span class="size-1.5 rounded-full" :class="connectionDotClass"></span>
                                                 {{ connectionStatusText }}
                                           </div>
                                     </div>
@@ -150,9 +158,10 @@ Vue.component("lobby-view", {
                                           No one is online right now.
                                     </p>
                                     <div v-else class="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
-                                          <div v-for="p in onlinePlayers" :key="p.id"
-                                                class="flex items-center gap-2 rounded-2xl bg-white/40 px-3 py-2 text-sm shadow-sm">
+<div v-for="p in onlinePlayers" :key="p.id"
+                                                  class="flex items-center gap-2 rounded-2xl bg-white/40 px-3 py-2 text-sm shadow-sm">
                                                 <span class="size-2.5 shrink-0 rounded-full bg-green-500"></span>
+                                                <img v-if="p.avatarUrl" :src="p.avatarUrl" alt="" class="lobby-avatar" />
                                                 <span class="font-black">{{ p.name }}</span>
                                                 <span v-if="p.roomCode" class="ml-auto text-xs font-bold text-orange-700">room {{ p.roomCode }}</span>
                                                 <span v-else-if="p.id === socketId" class="ml-auto text-xs font-bold text-slate-500">

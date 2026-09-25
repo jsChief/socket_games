@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Admin Panel — Socket Games</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="stylesheet" href="all.css" />
+    <link rel="stylesheet" href="admin.css" />
+    <script src="src/vue.js"></script>
+  </head>
+
+  <body class="admin-body">
+    <script>
+      // Apply the admin's saved light/dark preference before first paint (no flash).
+      if (localStorage.getItem("adminMode") === "light") {
+        document.body.classList.add("light");
+      }
+    </script>
+    <div id="admin-app" v-cloak>
+      <!-- ============================== LOGIN ============================== -->
+      <div v-if="!loggedIn" class="login-wrap">
+        <div class="login-card">
+          <button
+            class="btn btn-ghost btn-sm login-theme-toggle"
+            :title="light ? 'Switch to dark mode' : 'Switch to light mode'"
+            @click="toggleMode"
+          >
+            <i :class="light ? 'fa fa-moon' : 'fa fa-sun'"></i>
+          </button>
+          <div class="logo"><i class="fa fa-shield-alt"></i></div>
+          <h1>Admin Panel</h1>
+          <p class="sub">Socket Games server administration</p>
+
+          <p v-if="login.error" class="error-text">{{ login.error }}</p>
+
+          <div class="field">
+            <label for="adminUser">Username</label>
+            <input
+              id="adminUser"
+              v-model="login.username"
+              type="text"
+              placeholder="admin"
+              autocomplete="username"
+              :disabled="login.busy"
+              @keyup.enter="doLogin"
+            />
+          </div>
+          <div class="field">
+            <label for="adminPass">Password</label>
+            <input
+              id="adminPass"
+              v-model="login.password"
+              type="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              :disabled="login.busy"
+              @keyup.enter="doLogin"
+            />
+          </div>
+
+          <button
+            class="btn btn-primary btn-full"
+            :disabled="login.busy"
+            @click="doLogin"
+          >
+            <i :class="login.busy ? 'fa fa-spinner fa-spin' : 'fa fa-sign-in-alt'"></i>
+            {{ login.busy ? "Signing in..." : "Sign in" }}
+          </button>
+
+          <p class="login-foot">
+            Only for the server owner. <a href="/">← Back to the games</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- ============================== PANEL ============================== -->
+      <div v-else>
+        <!-- Top bar -->
+        <header class="admin-top">
+          <div class="brand">
+            <span class="shield"><i class="fa fa-shield-alt"></i></span>
+            Admin Panel
+          </div>
+          <span class="status-dot" title="live connection"></span>
+          <span class="spacer"></span>
+          <span class="small muted">
+            <i class="fa fa-clock"></i> {{ clock }}
+          </span>
+          <div class="user-chip">
+            <i class="fa fa-user-cog"></i>
+            <span>{{ admin.username }}</span>
+            <span class="role-badge">{{ admin.role }}</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" @click="toggleMode" :title="light ? 'Switch to dark mode' : 'Switch to light mode'">
+            <i :class="light ? 'fa fa-moon' : 'fa fa-sun'"></i>
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="refreshAll" title="Refresh everything">
+            <i :class="refreshing ? 'fa fa-spinner fa-spin' : 'fa fa-sync-alt'"></i>
+          </button>
+          <a class="btn btn-ghost btn-sm" href="/" title="Open the games page">
+            <i class="fa fa-gamepad"></i> Games
+          </a>
+          <button class="btn btn-danger btn-sm" @click="logout">
+            <i class="fa fa-sign-out-alt"></i> Log out
+          </button>
+        </header>
+
+        <!-- Tabs -->
+        <nav class="admin-nav">
+          <button
+            v-for="t in tabs"
+            :key="t.id"
+            class="nav-btn"
+            :class="tab === t.id ? 'active' : ''"
+            @click="selectTab(t.id)"
+          >
+            <i :class="t.icon"></i> {{ t.label }}
+          </button>
+        </nav>
+
+        <main class="admin-main">
+          <!-- ===================== DASHBOARD ===================== -->
+          <div v-if="tab === 'dashboard'">
+            <div class="grid grid-cards">
+              <div class="card stat-card stat-blue">
+                <div class="stat-content">
+                  <div class="stat-icon"><i class="fa fa-users"></i></div>
+                  <div class="stat-value">{{ overview.onlineCount }}</div>
+                  <div class="stat-label">Online players</div>
+                </div>
+              </div>
+              <div class="card stat-card stat-teal">
+                <div class="stat-content">
+                  <div class="stat-icon"><i class="fa fa-door-open"></i></div>
+                  <div class="stat-value">{{ overview.roomCount }}</div>
+                  <div class="stat-label">Active rooms</div>
+                </div>
+              </div>
+              <div class="card stat-card stat-purple">
+                <div class="stat-content">
+                  <div class="stat-icon"><i class="fa fa-signature"></i></div>
+                  <div class="stat-value">{{ overview.accountCount }}</div>
+                  <div class="stat-label">Registered accounts</div>
+                </div>
+              </div>
+              <div class="card stat-card stat-amber">
+                <div class="stat-content">
+                  <div class="stat-icon"><i class="fa fa-trophy"></i></div>
+                  <div class="stat-value">{{ overview.gamesPlayed }}</div>
+                  <div class="stat-label">Games played</div>
+                </div>
+              </div>
+              <div class="card stat-card stat-cyan">
+                <div class="stat-content">
+                  <div class="stat-icon"><i class="fa fa-robot"></i></div>
+                  <div class="stat-value">{{ overview.botCount }}</div>
+                  <div class="stat-label">AI bots online</div>
+                </div>
+              </div>
+              <div class="card stat-card stat-rose">
+                <div class="stat-content">
+                  <div class="stat-icon"><i class="fa fa-user-shield"></i></div>
+                  <div class="stat-value">{{ overview.adminCount }}</div>
+                  <div class="stat-label">Admins</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid two-col" style="margin-top: 16px">
+              <div class="card">
+                <h3>Server status</h3>
+                <p class="small" style="margin: 6px 0">
+                  <i class="fa fa-caret-up"></i> Uptime: <b>{{ formatUptime(overview.uptimeSeconds) }}</b>
+                </p>
+                <p class="small" style="margin: 6px 0">
+                  <i class="fa fa-microchip"></i> Runtime: <b>{{ overview.nodeVersion }}</b> · {{ overview.platform }}/{{ overview.arch }}
+                </p>
+                <p class="small" style="margin: 6px 0">
+                  <i class="fa fa-memory"></i> Memory: <b>{{ overview.memoryMB }} MB</b>
+                </p>
+                <p class="small" style="margin: 6px 0">
+                  <i class="fa fa-layer-group"></i> Stats entries: <b>{{ overview.playerStatsCount }}</b> ·
+                  Log lines: <b>{{ overview.logCount }}</b> ·
+                  Reset codes: <b>{{ overview.resetCodesActive }}</b>
+                </p>
+                <div class="progress-bar" style="margin-top: 12px">
+                  <span :style="{ width: memoryPercent + '%' }"></span>
+                </div>
+                <p class="small muted" style="margin: 6px 0">
+                  Rooms currently in a game: <b>{{ overview.roomsInGame }}</b>
+                </p>
+              </div>
+
+              <div class="card">
+                <h3>Recent admin actions</h3>
+                <div v-if="audit.length === 0" class="empty-state">No admin actions recorded yet.</div>
+                <div v-else class="audit-list">
+                  <div v-for="a in audit.slice(0, 8)" :key="a.id" class="audit-item">
+                    <span class="mono muted">{{ formatTime(a.t) }}</span>
+                    <span class="badge badge-game">{{ a.action }}</span>
+                    <span class="muted small">{{ a.detail }}</span>
+                    <span class="muted small" style="margin-left: auto">by {{ a.who }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top: 16px">
+              <div class="leader-top">
+                <h3 style="margin: 0">Leaderboard — top 5</h3>
+                <button class="btn btn-ghost btn-sm" @click="selectTab('stats')">Full leaderboard <i class="fa fa-arrow-right"></i></button>
+              </div>
+              <table v-if="leaderboard.length" class="tbl">
+                <thead>
+                  <tr>
+                    <th>#</th><th>Player</th><th>Wins</th><th>Losses</th><th>Draws</th><th>Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(p, i) in leaderboard.slice(0, 5)" :key="p.persistentUserId">
+                    <td class="muted">{{ i + 1 }}</td>
+                    <td class="name"><img v-if="p.avatarUrl" :src="p.avatarUrl" alt="" class="avatar-thumb" />{{ p.name }}</td>
+                    <td style="color: var(--ok)">{{ p.wins }}</td>
+                    <td style="color: var(--danger)">{{ p.losses }}</td>
+                    <td class="muted">{{ p.draws }}</td>
+                    <td>{{ p.winRate }}%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">No games played yet.</div>
+            </div>
+          </div>
+
+          <!-- ===================== LIVE ===================== -->
+          <div v-if="tab === 'live'">
+            <div class="grid two-col">
+              <div class="card">
+                <div class="leader-top">
+                  <h3 style="margin: 0">
+                    <i class="fa fa-users"></i> Online players ({{ onlinePlayers.length }})
+                  </h3>
+                  <button class="btn btn-ghost btn-sm" @click="loadPlayers"><i class="fa fa-sync-alt"></i></button>
+                </div>
+                <div v-if="onlinePlayers.length === 0" class="empty-state">
+                  No one is online right now.
+                </div>
+                <div v-else>
+                  <div v-for="p in onlinePlayers" :key="p.id" class="player-line">
+                    <span class="avatar">
+                      <img v-if="p.avatarUrl" :src="p.avatarUrl" alt="" class="avatar-img" />
+                      <i v-else class="fa fa-user"></i>
+                    </span>
+                    <div>
+                      <div class="name">{{ p.name }}</div>
+                      <div class="small muted">
+                        <span v-if="p.roomCode" class="badge badge-room">{{ p.roomCode }}</span>
+                        <span v-if="p.game" class="badge badge-game">{{ p.game }}</span>
+                        <span v-else class="badge badge-empty">lobby</span>
+                      </div>
+                    </div>
+                    <div class="row-actions">
+                      <button class="btn btn-ghost btn-sm" title="Send a private message" @click="openMessageModal(p)">
+                        <i class="fa fa-paper-plane"></i>
+                      </button>
+                      <button class="btn btn-danger btn-sm" title="Kick back to lobby" @click="kickPlayer(p)">
+                        <i class="fa fa-user-slash"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="leader-top">
+                  <h3 style="margin: 0">
+                    <i class="fa fa-door-open"></i> Active rooms ({{ rooms.length }})
+                  </h3>
+                  <button class="btn btn-ghost btn-sm" @click="loadRooms"><i class="fa fa-sync-alt"></i></button>
+                </div>
+                <div v-if="rooms.length === 0" class="empty-state">No active rooms.</div>
+                <div v-else>
+                  <div v-for="room in rooms" :key="room.code" class="room-row">
+                    <span class="room-code">{{ room.code }}</span>
+                    <div class="chips">
+                      <span v-for="pl in room.players" :key="pl.id" class="chip" :class="{ bot: pl.isBot }">
+                        <img v-if="pl.avatarUrl" :src="pl.avatarUrl" alt="" class="chip-avatar" />
+                        <i v-else :class="pl.isBot ? 'fa fa-robot' : 'fa fa-user'"></i> {{ pl.name }}
+                      </span>
+                      <span v-if="room.openSeats > 0" class="chip spectator">
+                        <i class="fa fa-chair"></i> {{ room.openSeats }} free
+                      </span>
+                      <span v-for="sp in room.spectators" :key="sp.id" class="chip spectator">
+                        <img v-if="sp.avatarUrl" :src="sp.avatarUrl" alt="" class="chip-avatar" />
+                        <i v-else class="fa fa-eye"></i> {{ sp.name }}
+                      </span>
+                    </div>
+                    <div class="row-actions">
+                      <span v-if="room.game" class="badge badge-game">{{ room.game }}</span>
+                      <span v-else class="badge badge-empty p-1">selecting</span>
+                      <button
+                        class="btn btn-danger btn-sm"
+                        title="Close room"
+                        @click="closeRoom(room)"
+                      >
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===================== USERS ===================== -->
+          <div v-if="tab === 'users'">
+            <div class="card">
+              <div class="leader-top">
+                <h3 style="margin: 0">
+                  <i class="fa fa-address-book"></i> Player accounts ({{ users.length }})
+                </h3>
+                <button class="btn btn-ghost btn-sm" @click="loadUsers"><i class="fa fa-sync-alt"></i></button>
+              </div>
+              <div class="table-wrap" style="overflow-x: auto">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th>Username</th><th>Player ID</th><th>Sessions</th><th>Record</th><th style="text-align:right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="u in users" :key="u.persistentUserId || u.username">
+                      <td class="name"><img v-if="u.avatarUrl" :src="u.avatarUrl" alt="" class="avatar-thumb" />{{ u.username }}</td>
+                      <td class="mono small muted">{{ shortId(u.persistentUserId) }}</td>
+                      <td><span class="badge badge-online">{{ u.tokenCount }}</span></td>
+                      <td class="small">
+                        <template v-if="u.stats">
+                          <span style="color: var(--ok)">{{ u.stats.wins }}W</span> /
+                          <span style="color: var(--danger)">{{ u.stats.losses }}L</span> /
+                          <span class="muted">{{ u.stats.draws }}D</span>
+                        </template>
+                        <span v-else class="muted">—</span>
+                      </td>
+                      <td style="text-align: right">
+                        <div class="row-actions" style="justify-content: flex-end">
+                          <button class="btn btn-ghost btn-sm" title="Issue a one-time password-reset code" @click="openResetCodeModal(u)">
+                            <i class="fa fa-key"></i>
+                          </button>
+                          <button class="btn btn-ghost btn-sm" title="Set a new password" @click="openResetPwModal(u)">
+                            <i class="fa fa-user-edit"></i>
+                          </button>
+                          <button class="btn btn-danger btn-sm" title="Delete account" @click="openDeleteUserModal(u)">
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="users.length === 0" class="empty-state">No registered accounts yet.</div>
+            </div>
+
+            <div class="card" style="margin-top: 16px">
+              <div class="leader-top">
+                <h3 style="margin: 0">
+                  <i class="fa fa-user-shield"></i> Admins ({{ admins.length }})
+                </h3>
+                <button v-if="isRoot" class="btn btn-success btn-sm" @click="openAddAdminModal()">
+                  <i class="fa fa-plus"></i> Add admin
+                </button>
+              </div>
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Username</th><th>Role</th><th>Sessions</th><th style="text-align:right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="a in admins" :key="a.username">
+                    <td class="name">{{ a.username }}</td>
+                    <td><span class="badge" :class="a.role === 'root' ? 'badge-game' : 'badge-room'">{{ a.role }}</span></td>
+                    <td><span class="badge badge-online">{{ a.tokenCount }}</span></td>
+                    <td style="text-align: right">
+                      <div v-if="isRoot && a.username !== admin.username" class="row-actions" style="justify-content: flex-end">
+                        <button class="btn btn-ghost btn-sm" title="Set new password" @click="openResetAdminPwModal(a)">
+                          <i class="fa fa-user-edit"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" title="Remove admin" @click="openDeleteAdminModal(a)">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </div>
+                      <span v-else-if="a.username === admin.username" class="muted small">(you)</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===================== STATS ===================== -->
+          <div v-if="tab === 'stats'">
+            <div class="card">
+              <div class="leader-top">
+                <h3 style="margin: 0">
+                  <i class="fa fa-trophy"></i> Leaderboard — {{ statsGamesPlayed }} games recorded
+                </h3>
+                <button class="btn btn-ghost btn-sm" @click="loadStats"><i class="fa fa-sync-alt"></i></button>
+              </div>
+              <div style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap">
+                <input v-model="statsSearch" class="filter-input" placeholder="Search by name…" />
+                <select v-model="statsSort" class="filter-input" style="max-width: 170px">
+                  <option value="wins">Sort by wins</option>
+                  <option value="winRate">Sort by win rate</option>
+                  <option value="total">Sort by games</option>
+                  <option value="name">Sort by name</option>
+                </select>
+              </div>
+              <div style="overflow-x: auto">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Player</th><th>Wins</th><th>Losses</th><th>Draws</th><th>Games</th><th>Win rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(p, i) in filteredLeaderboard" :key="p.persistentUserId">
+                      <td class="muted">{{ i + 1 }}</td>
+                      <td class="name"><img v-if="p.avatarUrl" :src="p.avatarUrl" alt="" class="avatar-thumb" />{{ p.name }}</td>
+                      <td style="color: var(--ok)">{{ p.wins }}</td>
+                      <td style="color: var(--danger)">{{ p.losses }}</td>
+                      <td class="muted">{{ p.draws }}</td>
+                      <td>{{ p.total }}</td>
+                      <td>
+                        <span class="badge" :class="p.winRate >= 50 ? 'badge-online' : 'badge-empty'">{{ p.winRate }}%</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="filteredLeaderboard.length === 0" class="empty-state">No players match your search.</div>
+            </div>
+          </div>
+
+          <!-- ===================== BROADCAST ===================== -->
+          <div v-if="tab === 'broadcast'">
+            <div class="card broadcast-box">
+              <h3><i class="fa fa-bullhorn"></i> Broadcast to all online players</h3>
+              <p class="small muted" style="margin-top: 0">
+                Everyone connected to the games page will see this as a toast notification
+                (the most recent one is also shown to players who join later).
+              </p>
+              <textarea v-model="announceText" placeholder="e.g. Server update in 10 minutes, please finish your games!" @keydown.ctrl.enter="sendAnnounce"></textarea>
+              <div class="broadcast-actions">
+                <button class="btn btn-primary" :disabled="!announceText.trim() || announceBusy" @click="sendAnnounce">
+                  <i :class="announceBusy ? 'fa fa-spinner fa-spin' : 'fa fa-paper-plane'"></i>
+                  Send announcement
+                </button>
+                <span class="small muted">Ctrl+Enter to send</span>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top: 16px">
+              <h3><i class="fa fa-history"></i> Previous announcements</h3>
+              <div v-if="announcements.length === 0" class="empty-state">No announcements sent this session.</div>
+              <div v-for="a in announcements" :key="a.at" class="prev-announce">
+                <div class="muted small">{{ formatTime(a.at) }}</div>
+                <div>{{ a.text }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===================== LOGS ===================== -->
+          <div v-if="tab === 'logs'">
+            <div class="card">
+              <div class="leader-top">
+                <h3 style="margin: 0">
+                  <i class="fa fa-terminal"></i> Server logs ({{ logs.length }} shown)
+                </h3>
+                <div style="display: flex; gap: 6px">
+                  <button class="btn btn-ghost btn-sm" @click="loadLogs"><i class="fa fa-sync-alt"></i></button>
+                  <button class="btn btn-danger btn-sm" @click="clearLogs">Clear</button>
+                </div>
+              </div>
+              <div class="log-filters">
+                <button
+                  v-for="lv in ['all', 'info', 'warn', 'error']"
+                  :key="lv"
+                  class="filter-btn"
+                  :class="logLevel === lv ? 'active' : ''"
+                  @click="logLevel = lv"
+                >{{ lv }}</button>
+                <input v-model="logSearch" class="filter-input" placeholder="Filter logs…" />
+              </div>
+              <div class="log-list">
+                <div v-if="filteredLogs.length === 0" class="empty-state">No matching log lines.</div>
+                <div v-for="l in filteredLogs" :key="l.id" class="log-line" :class="'lvl-' + l.level">
+                  <span class="t">{{ formatTime(l.t) }}</span>
+                  <span class="lvl">{{ l.level }}</span>
+                  <span>{{ l.text }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- ============================== MODALS ============================== -->
+      <div v-if="modal.type" class="modal-overlay" @click.self="closeModal">
+        <div class="modal">
+          <!-- Reset code -->
+          <div v-if="modal.type === 'reset-code'">
+            <h3><i class="fa fa-key"></i> One-time reset code</h3>
+            <p class="small muted">
+              Give this code to <b>{{ modal.user.username }}</b>. It expires in 15 minutes
+              and can be used once to set a new password (the player-side "forgot
+              password" dialog still needs to be wired up on the games page).
+            </p>
+            <div class="big-code mono">{{ modal.code }}</div>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Close</button>
+              <button class="btn btn-success" @click="copyCode">Copy code</button>
+            </div>
+          </div>
+
+          <!-- Reset password -->
+          <div v-if="modal.type === 'reset-pw'">
+            <h3>Reset password for {{ modal.user.username }}</h3>
+            <div class="field">
+              <label>New password</label>
+              <input v-model="modal.newPassword" type="password" placeholder="At least 4 characters" @keyup.enter="resetPassword" />
+            </div>
+            <div class="field">
+              <label>Confirm</label>
+              <input v-model="modal.confirmPassword" type="password" placeholder="Repeat password" @keyup.enter="resetPassword" />
+            </div>
+            <p v-if="modal.error" class="error-text">{{ modal.error }}</p>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+              <button class="btn btn-primary" @click="resetPassword">Save password</button>
+            </div>
+          </div>
+
+          <!-- Delete user -->
+          <div v-if="modal.type === 'delete-user'">
+            <h3>Delete account</h3>
+            <p class="small">
+              Delete <b>{{ modal.user.username }}</b>? This removes the account, all their
+              login tokens, and their stats entry. If they're online they'll be kicked to the lobby.
+            </p>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+              <button class="btn btn-danger" @click="deleteUser">Delete account</button>
+            </div>
+          </div>
+
+          <!-- Message player -->
+          <div v-if="modal.type === 'message-player'">
+            <h3>Message {{ modal.player.name }}</h3>
+            <div class="composer">
+              <div class="composer-head">
+                <span class="composer-label"><i class="fa fa-paper-plane"></i> Private message</span>
+                <span class="small muted">Full-screen modal on their screen</span>
+              </div>
+              <textarea
+                v-model="modal.message"
+                class="composer-input"
+                rows="4"
+                maxlength="500"
+                autofocus
+                placeholder="Type your message… the player sees it as a full-screen modal they can dismiss."
+                @keydown.ctrl.enter="sendPlayerMessage"
+                @keydown.meta.enter="sendPlayerMessage"
+              ></textarea>
+              <div class="composer-foot">
+                <span class="count" :class="{ warn: modal.message.length >= 500 }">{{ modal.message.length }}/500</span>
+                <span class="small muted">Ctrl+Enter to send</span>
+              </div>
+            </div>
+            <p v-if="modal.error" class="error-text">{{ modal.error }}</p>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+              <button class="btn btn-primary" @click="sendPlayerMessage"><i class="fa fa-paper-plane"></i> Send</button>
+            </div>
+          </div>
+
+          <!-- Add admin -->
+          <div v-if="modal.type === 'add-admin'">
+            <h3>Add admin</h3>
+            <div class="field">
+              <label>Username</label>
+              <input v-model="modal.username" type="text" placeholder="admin" @keyup.enter="addAdmin" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input v-model="modal.password" type="password" placeholder="At least 4 characters" @keyup.enter="addAdmin" />
+            </div>
+            <div class="field">
+              <label>Role</label>
+              <select v-model="modal.role" class="filter-input">
+                <option value="admin">admin (cannot manage admins)</option>
+                <option value="root">root (full access)</option>
+              </select>
+            </div>
+            <p v-if="modal.error" class="error-text">{{ modal.error }}</p>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+              <button class="btn btn-success" @click="addAdmin">Create admin</button>
+            </div>
+          </div>
+
+          <!-- Reset admin password -->
+          <div v-if="modal.type === 'reset-admin-pw'">
+            <h3>Reset password for {{ modal.admin.username }}</h3>
+            <div class="field">
+              <label>New password</label>
+              <input v-model="modal.newPassword" type="password" placeholder="At least 4 characters" @keyup.enter="resetAdminPassword" />
+            </div>
+            <p v-if="modal.error" class="error-text">{{ modal.error }}</p>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+              <button class="btn btn-primary" @click="resetAdminPassword">Save password</button>
+            </div>
+          </div>
+
+          <!-- Delete admin -->
+          <div v-if="modal.type === 'delete-admin'">
+            <h3>Remove admin</h3>
+            <p class="small">
+              Remove admin <b>{{ modal.admin.username }}</b>? They'll be signed out immediately.
+            </p>
+            <div class="actions">
+              <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+              <button class="btn btn-danger" @click="deleteAdmin">Remove admin</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toasts -->
+      <div class="toast-wrap">
+        <div v-for="t in toasts" :key="t.id" class="toast" :class="[t.type, { 'toast-out': t.leaving }]">
+          {{ t.message }}
+        </div>
+      </div>
+    </div>
+
+    <script src="admin.js"></script>
+  </body>
+</html>
