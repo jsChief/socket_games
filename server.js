@@ -507,6 +507,7 @@ function getOnlinePlayers() {
       roomCode: p.roomCode,
       avatarUrl: avatarDisplayUrl(p.name, p.persistentUserId),
     }));
+    
 }
 
 // Start the selected game when both seated players agree on one.
@@ -832,7 +833,7 @@ io.on("connection", (socket) => {
     const avatarColor = avatars.sanitizeColor(
       avatarSettings.color !== undefined ? avatarSettings.color : avatarSettings.hue,
     );
-    const avatarPattern = avatarSettings.pattern || "random";
+    const avatarPattern = avatarSettings.pattern || "rings";
     socket.emit("my-profile", {
       name: player.name,
       uid,
@@ -874,7 +875,7 @@ io.on("connection", (socket) => {
     const color = avatars.sanitizeColor(rawColor);
     const pattern = avatars.sanitizePattern(data && data.pattern);
     const finalColor = color != null ? color : avatars.baseHueOf(player.name);
-    const finalPattern = pattern || "random";
+    const finalPattern = pattern || "rings";
     avatars.setAvatarSettings(player.persistentUserId, {
       color: finalColor,
       pattern: finalPattern,
