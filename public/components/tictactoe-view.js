@@ -307,7 +307,7 @@ Vue.component("tictactoe-view", {
 
                   <!-- Reset request overlay -->
                   <div v-if="resetFromName" @click="declineReset"
-                        class="fixed inset-0 z-[75] flex items-center justify-center bg-black/45 backdrop-blur-sm">
+                        class="fixed inset-0 z-[75] flex items-center justify-center bg-black/45">
                         <div class="howto-pop w-80 max-w-full rounded-3xl bg-white/95 p-6 text-center text-slate-900 shadow-2xl"
                               @click.stop>
                               <div class="text-5xl mb-2">↻</div>
@@ -327,7 +327,7 @@ Vue.component("tictactoe-view", {
 
                   <!-- Result overlay -->
                   <div v-if="result" @click="dismissResult"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55">
                         <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">{{ result.emoji }}</div>

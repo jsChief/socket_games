@@ -357,7 +357,7 @@ var __avatarPattern = "random";
 var __avatarDialogVm = null;
 
 var __avatarPatterns = [
-  { id: "random", label: "Mix" },
+  //{ id: "random", label: "Mix" },
   { id: "checker", label: "Checker" },
   { id: "stripes", label: "Stripes" },
   { id: "rings", label: "Rings" },
@@ -504,7 +504,7 @@ Vue.component("avatar-dialog", {
   },
   template: `
             <div v-if="open" class="fixed inset-0 z-[95] flex items-center justify-center p-4">
-                  <div class="absolute inset-0 bg-black/55 backdrop-blur-sm" @click="close"></div>
+                  <div class="absolute inset-0 bg-black/55" @click="close"></div>
                   <div class="howto-pop relative w-full max-w-md overflow-hidden rounded-3xl bg-white/95 shadow-2xl">
                         <div class="relative overflow-hidden bg-gradient-to-br from-fuchsia-600 to-purple-700 px-6 py-4 text-white">
                               <div class="deco-circle -right-6 -top-8 size-28"></div>
@@ -530,16 +530,16 @@ Vue.component("avatar-dialog", {
                               </div>
 
                               <!-- Seed color -->
-                              <p class="mt-5 mb-2 text-sm font-black text-slate-700">🌈 Seed color <span v-if="color === 'black' || color === 'white'" class="ml-1 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">{{ color === 'black' ? 'Black' : 'White' }}</span></p>
+                              <p class="mt-5 mb-2 text-sm font-black text-slate-700">Seed color <span v-if="color === 'black' || color === 'white'" class="ml-1 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">{{ color === 'black' ? 'Black' : 'White' }}</span></p>
                               <input type="range" v-model.number="hueNum" min="0" max="359" step="1"
                                     class="w-full appearance-none rounded-full" style="height: 12px;"
                                     :style="'background: linear-gradient(90deg, ' + swatchStops(swatchColors()) + ')'"
-                                    :class="{ 'opacity-40': color === 'black' || color === 'white' }" />
+                                    :class="{ 'opacity-80': color === 'black' || color === 'white' }" />
                               <div class="mt-3 flex justify-between gap-1">
                                     <button v-for="h in swatches" :key="h" @click="pickHue(h)"
                                           class="size-7 rounded-xl shadow-inner"
                                           :class="color === h ? 'ring-2 ring-slate-800 scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'"
-                                          :style="'background: hsl(' + h + ', 62%, 46%)'"></button>
+                                          :style="'background: hsl(' + h + ', 82%, 46%)'"></button>
                               </div>
                               <div class="mt-3 flex items-center gap-2">
                                     <button @click="color = 'black'" title="Black &amp; white avatar"
@@ -553,12 +553,12 @@ Vue.component("avatar-dialog", {
                                     <span class="ml-1 text-xs font-black text-slate-400">or black &amp; white</span>
                               </div>
 
-                              <!--<div class="mt-3 flex flex-wrap items-center gap-2">
+                              <!-- <div class="mt-3 flex flex-wrap items-center gap-2">
                                 <button @click="color = 'cyberpunk'" class="px-2 py-1 text-xs rounded-lg font-bold bg-pink-600 text-cyan-300">Cyberpunk</button>
                                 <button @click="color = 'sunset'" class="px-2 py-1 text-xs rounded-lg font-bold bg-amber-500 text-slate-900">Sunset</button>
                                 <button @click="color = 'neon'" class="px-2 py-1 text-xs rounded-lg font-bold bg-green-500 text-black">Neon</button>
                                 <button @click="color = 'emerald'" class="px-2 py-1 text-xs rounded-lg font-bold bg-emerald-600 text-white">Emerald</button>
-                              </div>-->
+                              </div> -->
 
                               <!-- Pattern -->
                               <p class="mt-5 mb-2 text-sm font-black text-slate-700">🧩 Pattern</p>
@@ -573,22 +573,22 @@ Vue.component("avatar-dialog", {
                                     </button>
                               </div>
 
-                              <p class="mt-4 rounded-2xl bg-slate-100 px-3 py-2 text-center text-xs font-bold text-slate-500">
+                              <p class="mt-4 rounded-2xl bg-sl px-3 py-2 text-center text-xs font-bold text-slae-500">
                                     🎲 Tap the dice to randomize color &amp; pattern (black &amp; white included)
                               </p>
                         </div>
 
                         <div class="flex gap-2 px-6 pb-6">
                               <button @click="close"
-                                    class="btn-bubble rounded-2xl bg-slate-300 text-slate-700 px-5 py-3 text-base font-black">
+                                    class="btn-bubble rounded-2xl bg-slate-300 text-slate-700 px-2 py-1 md:px-5 md:py-3 text-base font-black">
                                     Cancel
                               </button>
                               <button @click="randomize" title="Randomize"
-                                    class="btn-bubble rounded-2xl bg-white border-2 border-slate-200 px-3 py-3 text-lg font-black">
+                                    class="btn-bubble rounded-2xl bg-white border-2 border-slate-200 px-2 py-1 md:px-3 md:py-3 text-lg font-black">
                                     🎲
                               </button>
                               <button @click="save"
-                                    class="btn-bubble flex-1 rounded-2xl bg-gradient-to-br from-fuchsia-600 to-purple-700 px-5 py-3 text-base font-black text-white">
+                                    class="btn-bubble flex-1 rounded-2xl bg-gradient-to-br from-fuchsia-600 px-2 py-1 to-purple-700 md:px-5 md:py-3 text-base font-black text-white">
                                     Save avatar
                               </button>
                         </div>

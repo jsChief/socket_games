@@ -10,6 +10,7 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="stylesheet" href="all.css" />
     <link rel="stylesheet" href="admin.css" />
+    <script src=""></script>
     <script src="src/vue.js"></script>
   </head>
 
@@ -82,7 +83,8 @@
         <!-- Top bar -->
         <header class="admin-top">
           <div class="brand">
-            <span class="shield"><i class="fa fa-shield-alt"></i></span>
+            <!--<span class="shield"><i class="fa fa-shield-alt"></i></span>-->
+            <img alt="socket_games_icon" src="assets/socket_games_icon.png" style="height: 40px; width: 40px; border-radius: 20px;"/>
             Admin Panel
           </div>
           <span
@@ -108,9 +110,10 @@
           <button class="btn btn-ghost btn-sm" @click="refreshAll" title="Refresh everything">
             <i :class="refreshing ? 'fa fa-spinner fa-spin' : 'fa fa-sync-alt'"></i>
           </button>
+          <!--
           <a class="btn btn-ghost btn-sm" href="/" title="Open the games page">
             <i class="fa fa-gamepad"></i> Games
-          </a>
+          </a> -->
           <button class="btn btn-danger btn-sm" @click="logout">
             <i class="fa fa-sign-out-alt"></i> Log out
           </button>
