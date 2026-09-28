@@ -219,6 +219,9 @@ function connectSocket() {
                   token: localStorage.getItem("authToken") || "",
                   persistentUserId: persistentUserId,
             });
+            // Pull the stored private-chat list so previous conversations are
+            // listed even when the other player is offline.
+            if (app.$refs.chat) app.$refs.chat.requestConversationList();
       });
 
       socket.on("auth-required", () => {
@@ -238,6 +241,8 @@ function connectSocket() {
                               data.persistentUserId,
                         );
             }
+            // Re-read the list now that the account is confirmed.
+            if (app.$refs.chat) app.$refs.chat.requestConversationList();
             app.myName = data.username || app.myName;
             const saved = sessionStorage.getItem("view");
             app.view = ["tictactoe", "pizza", "reversi", "rps", "connect4", "spectator", "room"].includes(saved)
@@ -665,6 +670,10 @@ function connectSocket() {
 
       socket.on("private-history", (data) => {
             if (app.$refs.chat) app.$refs.chat.receivePrivateHistory(data);
+      });
+
+      socket.on("private-chats", (data) => {
+            if (app.$refs.chat) app.$refs.chat.receivePrivateChats(data);
       });
 
       socket.on("my-profile", (data) => {

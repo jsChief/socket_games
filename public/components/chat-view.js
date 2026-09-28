@@ -20,6 +20,8 @@ Vue.component("chat-view", {
                   opponentLabel: "",
                   opponentHighlighted: false,
                   typingTimeout: null,
+                  chatListRetry: null,
+                  chatListReceived: false,
                   quickChatOpen: false,
                   quickMessages: [
                         "Your turn!",
@@ -87,33 +89,45 @@ Vue.component("chat-view", {
                   };
             },
             onlineConvos() {
-                  return this.onlinePlayers.map((p) => ({
-                        key: p.name,
-                        type: "dm",
-                        player: this.makePlayer(p),
-                        online: true,
-                        unread: this.dmUnread[p.name] || 0,
-                  }));
+                  return this.onlinePlayers.map((p) => {
+                        const conv = this.dmChats[p.name];
+                        return {
+                              key: p.name,
+                              type: "dm",
+                              player: this.makePlayer(p),
+                              online: true,
+                              unread: this.dmUnread[p.name] || 0,
+                              lastText: conv ? conv.lastText : "",
+                              lastFromUid: conv ? conv.lastFromUid : "",
+                              lastAt: conv ? conv.lastAt : 0,
+                        };
+                  });
             },
+            // Chats that exist on the server but whose partner is not connected
+            // right now. Seeded from `private-chats` on load, so this list
+            // survives a page refresh and includes people who are offline.
             offlineConvos() {
-                  const convs = [];
                   const seen = {};
-                  for (const p of this.onlinePlayers)
-                        seen[p.name] = true;
+                  for (const p of this.onlinePlayers) seen[p.name] = true;
+                  const convos = [];
                   for (const key in this.dmChats) {
                         if (seen[key]) continue;
                         const conv = this.dmChats[key];
-                        if (conv.messages.length > 0) {
-                              convs.push({
-                                    key,
-                                    type: "dm",
-                                    player: conv.player,
-                                    online: false,
-                                    unread: this.dmUnread[key] || 0,
-                              });
-                        }
+                        // A conversation only counts once it actually has
+                        // history behind it.
+                        if (!conv.messages.length && !conv.lastAt) continue;
+                        convos.push({
+                              key,
+                              type: "dm",
+                              player: conv.player,
+                              online: false,
+                              unread: this.dmUnread[key] || 0,
+                              lastText: conv.lastText,
+                              lastFromUid: conv.lastFromUid,
+                              lastAt: conv.lastAt,
+                        });
                   }
-                  return convs;
+                  return convos.sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
             },
       },
       watch: {
@@ -158,6 +172,7 @@ Vue.component("chat-view", {
                   this.activeKey = "general";
                   this.replyTarget = null;
                   this.chatOpen = true;
+                  this.requestConversationList();
             },
             close() {
                   this.chatOpen = false;
@@ -221,6 +236,23 @@ Vue.component("chat-view", {
                         online: true,
                   };
             },
+            // One-line preview of the most recent message, shown under the
+            // player's name in the conversation list. Messages you sent are
+            // prefixed so the direction is obvious, and newlines are collapsed
+            // so the row stays one line high.
+            dmPreview(item, fallback) {
+                  const text = item && item.lastText ? String(item.lastText) : "";
+                  if (!text) return fallback || "";
+                  const flat = text.replace(/\s+/g, " ").trim();
+                  if (!flat) return fallback || "";
+                  const mine = item.lastFromUid && item.lastFromUid === this.myUid;
+                  return (mine ? "You: " : "") + flat;
+            },
+            onlineStatus(p) {
+                  if (p.roomCode) return "In room " + p.roomCode;
+                  if (p.game) return "Playing " + p.game;
+                  return "In the lobby";
+            },
             ensureDmChat(id, name, player) {
                   const key = String(name || "Unknown");
                   const stored = this.dmChats[key];
@@ -241,6 +273,9 @@ Vue.component("chat-view", {
                         typingName: "",
                         input: "",
                         historyLoaded: false,
+                        lastAt: 0,
+                        lastText: "",
+                        lastFromUid: "",
                   };
                   this.$set(this.dmChats, key, conv);
                   return conv;
@@ -258,12 +293,93 @@ Vue.component("chat-view", {
                   for (const p of this.onlinePlayers)
                         byName[p.name] = p;
                   for (const key in this.dmChats) {
-                        if (byName[key])
+                        if (byName[key]) {
                               this.dmChats[key].player = this.makePlayer(
                                     byName[key],
                               );
-                        else this.dmChats[key].player.online = false;
+                              // They are back, so their history is worth
+                              // re-reading in case messages were missed.
+                              this.dmChats[key].historyLoaded = false;
+                        } else this.dmChats[key].player.online = false;
                   }
+            },
+            // Ask the server which private chats exist for this account, so the
+            // list is available after a reload and for offline partners. The
+            // server also pushes this unprompted when it registers us; if that
+            // push does not arrive (a request that raced registration, a
+            // dropped packet) ask once more so the list is never stuck empty.
+            requestConversationList() {
+                  socket.emit("list-private-chats");
+                  clearTimeout(this.chatListRetry);
+                  this.chatListReceived = false;
+                  this.chatListRetry = setTimeout(() => {
+                        if (!this.chatListReceived)
+                              socket.emit("list-private-chats");
+                  }, 1200);
+            },
+            receivePrivateChats(data) {
+                  const list =
+                        data && Array.isArray(data.conversations)
+                              ? data.conversations
+                              : [];
+                  this.chatListReceived = true;
+                  clearTimeout(this.chatListRetry);
+                  // This can arrive after `online-players`, so never mark a
+                  // partner offline if presence already says they are here.
+                  const onlineNames = {};
+                  const onlineUids = {};
+                  for (const p of this.onlinePlayers) {
+                        onlineNames[p.name] = true;
+                        if (p.uid) onlineUids[p.uid] = true;
+                  }
+                  for (const c of list) {
+                        if (!c || !c.partnerUid) continue;
+                        const name = c.partnerName || "Unknown player";
+                        // Conversations are keyed by name, so a rename leaves
+                        // the old key behind - find the partner by uid instead.
+                        let oldKey = "";
+                        for (const key in this.dmChats) {
+                              if (
+                                    this.dmChats[key].player.uid === c.partnerUid
+                              ) {
+                                    oldKey = key;
+                                    break;
+                              }
+                        }
+                        let conv;
+                        if (oldKey && oldKey !== name) {
+                              this.rekeyDmChat(oldKey, name);
+                              conv = this.dmChats[name];
+                        } else {
+                              conv = this.ensureDmChat("", name);
+                        }
+                        if (!conv) continue;
+                        conv.player.uid = c.partnerUid;
+                        if (c.avatarUrl) conv.player.avatarUrl = c.avatarUrl;
+                        conv.player.online = !!(
+                              onlineNames[conv.player.name] ||
+                              onlineUids[c.partnerUid]
+                        );
+                        conv.lastAt = Number(c.lastAt) || 0;
+                        conv.lastText = c.lastText || "";
+                        conv.lastFromUid = c.lastFromUid || "";
+                  }
+            },
+            // Move a conversation to a new key when its partner's name changes,
+            // carrying messages, unread count and draft across.
+            rekeyDmChat(oldKey, name) {
+                  const conv = this.dmChats[oldKey];
+                  if (!conv || oldKey === name) return;
+                  this.$delete(this.dmChats, oldKey);
+                  // If something is already filed under the new name, keep that
+                  // one rather than clobbering it.
+                  if (this.dmChats[name]) return;
+                  conv.key = name;
+                  conv.player.name = name;
+                  this.$set(this.dmChats, name, conv);
+                  if (this.dmUnread[oldKey] !== undefined)
+                        this.$set(this.dmUnread, name, this.dmUnread[oldKey]);
+                  if (this.activeKey === oldKey) this.activeKey = name;
             },
             setPrivateTyping(data) {
                   let conv = data && data.fromName
@@ -290,6 +406,9 @@ Vue.component("chat-view", {
                         fromName,
                   );
                   if (data && data.fromUid) conv.player.uid = data.fromUid;
+                  conv.lastAt = Date.now();
+                  conv.lastText = (data && data.text) || "";
+                  conv.lastFromUid = (data && data.fromUid) || "";
                   conv.messages.push(
                         this.makeMessageObj(
                               (data && data.text) || "",
@@ -371,8 +490,7 @@ Vue.component("chat-view", {
                   if (data && data.partnerName) conv.player.name = data.partnerName;
                   const msgs = (data && data.messages) || [];
                   if (!Array.isArray(msgs) || msgs.length === 0) return;
-                  conv.messages = msgs.map((m) => {
-                        const mine = conv.player.uid
+                  conv.messages = msgs.map((m) => {                        const mine = conv.player.uid
                               ? m.fromUid !== conv.player.uid
                               : m.fromUid === this.myUid;
                         return {
@@ -388,6 +506,14 @@ Vue.component("chat-view", {
                                     : "",
                         };
                   });
+                  // The newest message is also what the conversation list
+                  // previews, so keep the two in step.
+                  const newest = msgs[msgs.length - 1];
+                  if (newest) {
+                        conv.lastText = newest.text || "";
+                        conv.lastFromUid = newest.fromUid || "";
+                        conv.lastAt = Number(newest.at) || Date.now();
+                  }
                   this.scrollToBottom();
             },
             backToList() {
@@ -409,7 +535,9 @@ Vue.component("chat-view", {
             sendPayload(payload, custom) {
                   const ch = this.currentChannel();
                   if (ch.type === "dm") {
-                        if (!ch.online) return;
+                        // Sending to someone offline is allowed: the server
+                        // stores the message and they read it when they return.
+                        if (!ch.uid && !ch.id) return;
                         socket.emit("private-message", {
                               to: ch.id,
                               toUid: ch.uid || "",
@@ -417,7 +545,11 @@ Vue.component("chat-view", {
                               replyTo: payload.replyTo || null,
                               replyToId: payload.replyToId || null,
                         });
-                        this.activeDm.messages.push(
+                        const conv = this.activeDm;
+                        conv.lastAt = Date.now();
+                        conv.lastText = payload.text;
+                        conv.lastFromUid = this.myUid;
+                        conv.messages.push(
                               this.makeMessageObj(
                                     payload,
                                     custom,
@@ -599,7 +731,7 @@ Vue.component("chat-view", {
                                                       General chat &amp; players
                                                 </div>
                                                 <div v-else-if="view === 'dm'" class="mt-0.5 text-xs font-bold text-white/85">
-                                                      {{ dmOffline ? "Offline" : "Private chat" }}
+                                                      {{ dmOffline ? "Offline · saved until they read it" : "Private chat" }}
                                                 </div>
                                                 <div v-else class="mt-0.5 text-xs font-bold text-white/85">
                                                       Everyone on the server
@@ -646,8 +778,9 @@ Vue.component("chat-view", {
                                     </span>
                                     <span class="min-w-0 flex-1">
                                           <span class="block truncate font-black">{{ p.player.name }}</span>
-                                          <span class="block truncate text-xs font-bold text-slate-500">
-                                                {{ p.player.roomCode ? "In room " + p.player.roomCode : p.player.game ? "Playing " + p.player.game : "In the lobby" }}
+                                          <span class="block truncate text-xs font-bold"
+                                                :class="p.unread ? 'text-orange-600' : 'text-slate-500'">
+                                                {{ dmPreview(p, onlineStatus(p.player)) }}
                                           </span>
                                     </span>
                                     <span v-if="p.unread"
@@ -658,18 +791,22 @@ Vue.component("chat-view", {
 
                               <div v-if="offlineConvos.length">
                                     <p class="px-2 pt-2 pb-1 text-xs font-black uppercase tracking-wide text-slate-500">
-                                          Recent chats
+                                      Recent chats
                                     </p>
                                     <button v-for="c in offlineConvos" :key="c.key" @click="openOfflineDm(c.key)"
                                           class="w-full mb-1.5 flex items-center gap-3 rounded-2xl border border-white/40 bg-white/50 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-orange-100">
-                                          <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-white/70 text-xl">
-                                                <i class="fa fa-user-slash text-slate-400"></i>
+                                          <span class="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/70 text-xl">
+                                            <img v-if="c.player.avatarUrl" :src="c.player.avatarUrl" alt=""
+                                                  class="size-9 rounded-lg object-cover" />
+                                            <i v-else class="fa fa-user text-slate-400"></i>
+                                            <span class="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-slate-300 ring-2 ring-white"></span>
                                           </span>
                                           <span class="min-w-0 flex-1">
-                                                <span class="block truncate font-black">{{ c.player.name }}</span>
-                                                <span class="block truncate text-xs font-bold text-slate-500">
-                                                      Offline{{ c.unread ? " · " + c.unread + " new" : "" }}
-                                                </span>
+                                            <span class="block truncate font-black">{{ c.player.name }}</span>
+                                            <span class="block truncate text-xs font-bold"
+                                                  :class="c.unread ? 'text-orange-600' : 'text-slate-500'">
+                                              {{ dmPreview(c, "Offline") }}
+                                            </span>
                                           </span>
                                           <span v-if="c.unread"
                                                 class="grid size-6 shrink-0 place-items-center rounded-full bg-red-500 text-xs font-black text-white">
@@ -780,11 +917,11 @@ Vue.component("chat-view", {
                                     </div>
 
                                     <div class="h-fit w-full rounded-2xl flex items-center place-content-between">
-                                          <input :placeholder="dmOffline ? 'Player is offline' : 'Type a message...'"
-                                                type="text" v-model="chatInput" :disabled="dmOffline"
+                                          <input :placeholder="dmOffline ? 'Message them while they are away…' : 'Type a message...'"
+                                                type="text" v-model="chatInput"
                                                 @input="onInput" @keyup.enter="sendMessage"
                                                 class="min-w-0 flex-1 placeholder-gray-600 rounded-2xl border border-white/40 bg-white/70 p-2 h-10 shadow-sm focus:outline-none disabled:opacity-50" />
-                                          <button @click="sendMessage" :disabled="dmOffline"
+                                          <button @click="sendMessage"
                                                 class="btn-bubble grid size-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 fa fa-arrow-up text-xl text-white disabled:opacity-50"></button>
                                     </div>
                               </div>

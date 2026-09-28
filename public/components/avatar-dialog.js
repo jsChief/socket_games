@@ -1,384 +1,55 @@
 // Avatar Studio dialog.
 //
 // Full-screen modal for picking a seed color + pattern for the player's
-// generated avatar. The preview is drawn client-side by mirroring the exact
-// generator in lib/avatars.js (fnv1a + mulberry32 + buildIdenticon), so the
-// pixels shown are the same as the PNG the server writes. Saving emits
-// "set-avatar"; main.js updates the profile from the "my-avatar" response.
+// generated avatar. The preview is drawn client-side from the shared generator
+// in avatar-core.js - the exact same file the server requires - so the pixels
+// shown are always the pixels the server writes. Saving emits "set-avatar";
+// main.js updates the profile from the "my-avatar" response.
 
-// ---- Identicon renderer (must mirror lib/avatars.js) ----
+const AvatarCore = window.AvatarCore;
 
-// var __GRID = 8;
-// var __HALF = 4;
-var __GRID = 16;
-var __HALF = __GRID / 2;
-
-function __fnv1a(str) {
-  var hash = 0x811c9dc5;
-  for (var i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash >>> 0;
-}
-
-function __mulberry32(seed) {
-  var s = seed >>> 0;
-  return function () {
-    s = (s + 0x6d2b79f5) >>> 0;
-    var t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function __seedRng(seedStr) {
-  return __mulberry32(__fnv1a(seedStr));
-}
-
-function sanitizeColor(value) {
-  if (MONO_COLORS.indexOf(value) !== -1) return value;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return ((n % 360) + 360) % 360;
-}
-
-function __hslToRgb(h, s, l) {
-  h = ((h % 1) + 1) % 1;
-  var c = (1 - Math.abs(2 * l - 1)) * s;
-  var x = c * (1 - Math.abs(((h * 6) % 2) - 1));
-  var m = l - c / 2;
-  var r = 0,
-    g = 0,
-    b = 0;
-  if (h < 1 / 6) [r, g, b] = [c, x, 0];
-  else if (h < 2 / 6) [r, g, b] = [x, c, 0];
-  else if (h < 3 / 6) [r, g, b] = [0, c, x];
-  else if (h < 4 / 6) [r, g, b] = [0, x, c];
-  else if (h < 5 / 6) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  return [
-    Math.round((r + m) * 255),
-    Math.round((g + m) * 255),
-    Math.round((b + m) * 255),
-  ];
-}
-
-// Resolve the 4-color palette from a color (hue degrees or mono "black"/"white").
-// Mirrors lib/avatars.js paletteFor().
-// function __paletteFor(color) {
-//   if (color === "black") {
-//     return {
-//       fg: [23, 26, 34],
-//       dark: [7, 8, 12],
-//       hl: [132, 138, 154],
-//       bg: [242, 243, 247],
-//     };
-//   }
-//   if (color === "white") {
-//     return {
-//       fg: [247, 248, 250],
-//       dark: [196, 200, 210],
-//       hl: [255, 255, 255],
-//       bg: [104, 109, 124],
-//     };
-//   }
-//   var hueFrac = (((color % 360) + 360) % 360) / 360;
-//   return {
-//     fg: __hslToRgb(hueFrac, 0.62, 0.46),
-//     dark: __hslToRgb((hueFrac + 0.015) % 1, 0.55, 0.28),
-//     hl: __hslToRgb((hueFrac + 0.02) % 1, 0.55, 0.68),
-//     bg: __hslToRgb(hueFrac, 0.45, 0.93),
-//   };
-// }
-// Named palettes supported in addition to single hue angles
-const MONO_COLORS = [
-  "black",
-  "white",
-  "cyberpunk",
-  "sunset",
-  "neon",
-  "emerald",
-];
-
-function __paletteFor(color) {
-  if (color === "black") {
-    return {
-      fg: [23, 26, 34],
-      dark: [7, 8, 12],
-      hl: [132, 138, 154],
-      bg: [242, 243, 247],
-    };
-  }
-  if (color === "white") {
-    return {
-      fg: [247, 248, 250],
-      dark: [196, 200, 210],
-      hl: [255, 255, 255],
-      bg: [104, 109, 124],
-    };
-  }
-  if (color === "cyberpunk") {
-    return {
-      fg: [255, 0, 127],
-      dark: [40, 10, 60],
-      hl: [0, 240, 255],
-      bg: [15, 10, 25],
-    };
-  }
-  if (color === "sunset") {
-    return {
-      fg: [255, 107, 107],
-      dark: [78, 205, 196],
-      hl: [255, 230, 109],
-      bg: [44, 62, 80],
-    };
-  }
-  if (color === "neon") {
-    return {
-      fg: [57, 255, 20],
-      dark: [20, 20, 20],
-      hl: [255, 0, 255],
-      bg: [5, 5, 5],
-    };
-  }
-  if (color === "emerald") {
-    return {
-      fg: [46, 204, 113],
-      dark: [22, 160, 133],
-      hl: [241, 196, 15],
-      bg: [236, 240, 241],
-    };
-  }
-
-  const hue = sanitizeColor(color);
-  const hueFrac = hue / 360;
-  return {
-    fg: __hslToRgb(hueFrac, 0.62, 0.46),
-    dark: __hslToRgb((hueFrac + 0.015) % 1, 0.55, 0.28),
-    hl: __hslToRgb((hueFrac + 0.02) % 1, 0.55, 0.68),
-    bg: __hslToRgb(hueFrac, 0.45, 0.93),
-  };
-}
-
-function __slugify(name) {
-  var slug = String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-  return slug || "guest";
-}
-
-// Builds the GRID x GRID key grid ("fg" | "dark" | "hl" | null) exactly like
-// the server's buildIdenticon.
-function __buildIdenticon(seedStr, hue, pattern) {
-  var rand = __seedRng(seedStr);
-  function keyAt(x, y) {
-    if (pattern === "circle") {
-  const dx = x - (__GRID - 1) / 2;
-  const dy = y - (__GRID - 1) / 2;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const r = Math.floor(dist);
-
-  return r === 0 || r === 1
-    ? "fg"
-    : r === 2 || r === 3
-      ? "dark"
-      : r === 4 || r === 5
-        ? "hl"
-        : r === 6
-          ? "fg"
-          : null;
-}
-    if (pattern === "face") {
-      // Head shape background
-      //if (y < 2 || y > 14) return null;
-
-      // Eyes (2x2 pixel eyes with light highlight reflections)
-      if ((y === 6 || y === 7) && (x === 3 || x === 4)) return "dark";
-      if (y === 6 && x === 3) return "hl"; // Sparkle in eye
-
-      // Blush cheeks
-      if (y === 9 && (x === 2 || x === 3)) return "hl";
-
-      // Smile / Mouth
-      if (y === 11 && x === 5) return "dark";
-      if (y === 12 && (x === 5 || x === 6 || x === 7)) return "dark";
-
-      // Main head fill
-      return "fg";
-    }
-
-    // New Pattern: Diamond
-    if (pattern === "diamond") {
-      const dist = Math.abs(x - 7.5) + Math.abs(y - 7.5);
-      if (dist < 4) return "fg";
-      if (dist < 7) return "hl";
-      if (dist < 10) return "dark";
-      return null;
-    }
-
-    // New Pattern: Grid Matrix
-    if (pattern === "grid") {
-      if (x % 3 === 0 || y % 3 === 0) return "fg";
-      const v = rand();
-      return v < 0.4 ? "hl" : "dark";
-    }
-
-    // New Pattern: Heart
-    if (pattern === "heart") {
-      // Basic heart curve check on 16x16
-      const nx = (x - 7.5) / 6;
-      const ny = (y - 6.5) / 6;
-      const a = nx * nx + ny * ny - 1;
-      if (a * a * a - nx * nx * ny * ny * ny <= 0) {
-        return (x + y) % 2 === 0 ? "fg" : "hl";
-      }
-      return null;
-    }
-    if (pattern === "checker") {
-      if ((x + y) % 2 === 0) {
-        var v = rand();
-        return v < 0.55 ? "fg" : v < 0.8 ? "dark" : "hl";
-      }
-      return null;
-    }
-    if (pattern === "stripes") {
-      var d = Math.min(
-        x + y,
-        __GRID - 1 - x + y,
-        x + __GRID - 1 - y,
-        __GRID - 1 - x + __GRID - 1 - y,
-      );
-      var band = d % 3;
-      return band === 0 ? "fg" : band === 1 ? "hl" : null;
-    }
-    if (pattern === "rings") {
-      var k = Math.floor(
-        Math.max(
-          Math.abs(x - (__GRID - 1) / 2),
-          Math.abs(y - (__GRID - 1) / 2),
-        ),
-      );
-      return k === 0
-        ? "fg"
-        : k === 1
-          ? "dark"
-          : k === 2
-            ? "hl"
-            : k === 3
-              ? "fg"
-              : k === 4
-                ? "dark"
-                : null;
-    }
-    if (pattern === "cross") {
-      var center =
-        Math.abs(x - (__GRID - 1) / 2) < 1 ||
-        Math.abs(y - (__GRID - 1) / 2) < 1;
-      if (center) {
-        var v = rand();
-        return v < 0.6 ? "fg" : v < 0.85 ? "dark" : "hl";
-      }
-      return null;
-    }
-    if (pattern === "dots") {
-      var v = rand();
-      return v < 0.2 ? "fg" : v < 0.28 ? "dark" : v < 0.34 ? "hl" : null;
-    }
-    if (pattern === "face") {
-      // Cute face: rounded head in fg, dark eyes + smile, light blush.
-      if (y === 0 || y === 7) return x === 0 ? null : "fg";
-      if (y === 2 || y === 3) return x === 2 ? "dark" : "fg";
-      if (y === 5) return x === 1 ? "hl" : x === 2 || x === 3 ? "dark" : "fg";
-      return "fg";
-    }
-    // "random"
-    var v = rand();
-    return v < 0.38 ? "fg" : v < 0.43 ? "dark" : v < 0.48 ? "hl" : null;
-  }
-
-  var grid = new Array(__GRID * __GRID).fill(null);
-  for (var y = 0; y < __GRID; y++) {
-    for (var x = 0; x < __GRID; x++) {
-      var cx = x < __HALF ? x : __GRID - 1 - x;
-      grid[y * __GRID + x] = keyAt(cx, y);
-    }
-  }
-  return grid;
-}
+// ---- Identicon renderer (delegates to the shared core) ----
 
 // Draw the avatar for (name, color, pattern) into a canvas. `color` is a hue in
-// degrees (number) or "black"/"white". Canvas should be GRID * px cells wide;
-// matching grid 8x8 with px-sized cells reproduces the server's 8x scaled
-// 64x64 PNG.
+// degrees (number) or a named palette such as "black" / "neon". The canvas is
+// drawn at whatever backing size it has, so a GRID-sized canvas reproduces the
+// server sprite 1:1 and a 128px one is a 2x zoom of it.
 function drawIdenticon(canvas, name, color, pattern) {
   if (!canvas || !canvas.getContext) return;
-  var gridSize = __GRID;
-  var px = canvas.width / gridSize;
-  var ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!name) return;
 
-  var colorStr =
-    typeof color === "number"
-      ? Math.round(color) % 360
-      : color === "black" || color === "white"
-        ? color
-        : 200;
-  var seed = String(name) + "|" + colorStr + "|" + (pattern || "random");
-  var pal = __paletteFor(colorStr);
+  const { color: resolved, grid } = AvatarCore.generateGrid(name, { color, pattern });
+  const pal = AvatarCore.paletteFor(resolved);
+  const px = canvas.width / AvatarCore.GRID;
 
-  var grid = __buildIdenticon(seed, colorStr, pattern || "random");
-  function fill(cell, x, y) {
-    var c =
-      cell === "fg"
-        ? pal.fg
-        : cell === "dark"
-          ? pal.dark
-          : cell === "hl"
-            ? pal.hl
-            : pal.bg;
-    ctx.fillStyle = "rgb(" + c.join(",") + ")";
-    ctx.fillRect(x * px, y * px, px, px);
-  }
-  for (var y = 0; y < gridSize; y++) {
-    for (var x = 0; x < gridSize; x++) {
-      fill(grid[y * gridSize + x], x, y);
+  for (let y = 0; y < AvatarCore.GRID; y++) {
+    for (let x = 0; x < AvatarCore.GRID; x++) {
+      const key = grid[y * AvatarCore.GRID + x];
+      const c =
+        key === "fg" ? pal.fg : key === "dark" ? pal.dark : key === "hl" ? pal.hl : pal.bg;
+      ctx.fillStyle = "rgb(" + c.join(",") + ")";
+      ctx.fillRect(x * px, y * px, px, px);
     }
   }
 }
 
-var __avatarName = "";
-var __avatarColor = 200;
-var __avatarPattern = "random";
-var __avatarDialogVm = null;
+let __avatarName = "";
+let __avatarColor = 200;
+let __avatarPattern = AvatarCore.DEFAULT_PATTERN;
+let __avatarDialogVm = null;
 
-var __avatarPatterns = [
-  //{ id: "random", label: "Mix" },
-  { id: "checker", label: "Checker" },
-  { id: "stripes", label: "Stripes" },
-  { id: "rings", label: "Rings" },
-  { id: "dots", label: "Dots" },
-  //{ id: "cross", label: "Cross" },
-  { id: "face", label: "Face" },
-  { id: "diamond", label: "Diamond" },
-  //{ id: "grid", label: "Grid" },
-  //{ id: "heart", label: "Heart" },
-  { id: "circle", label: "Circle" },
-];
-
-var __avatarSwatches = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+const __avatarPatterns = AvatarCore.PATTERN_LIST;
+const __avatarSwatches = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
 
 Vue.component("avatar-dialog", {
   data() {
     return {
       open: false,
       color: 200,
-      pattern: "random",
-      patternList: __avatarPatterns,
+      pattern: AvatarCore.DEFAULT_PATTERN,
+      patternGroups: ["Classic", "Complex"],
       swatches: __avatarSwatches,
     };
   },
@@ -393,6 +64,15 @@ Vue.component("avatar-dialog", {
       set(v) {
         this.color = v;
       },
+    },
+    // Patterns bucketed by group so the picker stays readable with 20+ options.
+    groupedPatterns() {
+      return this.patternGroups
+        .map((group) => ({
+          group,
+          items: __avatarPatterns.filter((p) => p.group === group),
+        }))
+        .filter((g) => g.items.length);
     },
   },
   mounted() {
@@ -434,7 +114,9 @@ Vue.component("avatar-dialog", {
           : current && typeof current.hue === "number"
             ? current.hue
             : 200;
-      __avatarPattern = current && current.pattern ? current.pattern : "random";
+      __avatarPattern =
+        (current && AvatarCore.sanitizePattern(current.pattern)) ||
+        AvatarCore.DEFAULT_PATTERN;
       this.open = true;
     },
     close() {
@@ -457,7 +139,7 @@ Vue.component("avatar-dialog", {
             canvas,
             this.name,
             this.color,
-            canvas.getAttribute("data-pattern") || "random",
+            canvas.getAttribute("data-pattern") || AvatarCore.DEFAULT_PATTERN,
           );
         }
       });
@@ -483,10 +165,7 @@ Vue.component("avatar-dialog", {
             ? "black"
             : "white"
           : Math.floor(Math.random() * 360);
-      this.pattern =
-        __avatarPatterns[
-          Math.floor(Math.random() * __avatarPatterns.length)
-        ].id;
+      this.pattern = __avatarPatterns[Math.floor(Math.random() * __avatarPatterns.length)].id;
     },
     setPattern(p) {
       this.pattern = p;
@@ -553,27 +232,22 @@ Vue.component("avatar-dialog", {
                                     <span class="ml-1 text-xs font-black text-slate-400">or black &amp; white</span>
                               </div>
 
-                              <!-- <div class="mt-3 flex flex-wrap items-center gap-2">
-                                <button @click="color = 'cyberpunk'" class="px-2 py-1 text-xs rounded-lg font-bold bg-pink-600 text-cyan-300">Cyberpunk</button>
-                                <button @click="color = 'sunset'" class="px-2 py-1 text-xs rounded-lg font-bold bg-amber-500 text-slate-900">Sunset</button>
-                                <button @click="color = 'neon'" class="px-2 py-1 text-xs rounded-lg font-bold bg-green-500 text-black">Neon</button>
-                                <button @click="color = 'emerald'" class="px-2 py-1 text-xs rounded-lg font-bold bg-emerald-600 text-white">Emerald</button>
-                              </div> -->
-
                               <!-- Pattern -->
-                              <p class="mt-5 mb-2 text-sm font-black text-slate-700">🧩 Pattern</p>
-                              <div class="grid grid-cols-3 gap-2">
-                                    <button v-for="p in patternList" :key="p.id" @click="setPattern(p.id)"
-                                          class="flex flex-col items-center gap-1 rounded-2xl border p-2 transition-colors"
-                                          :class="pattern === p.id ? 'border-fuchsia-500 bg-fuchsia-100 ring-1 ring-fuchsia-400' : 'border-white/60 bg-white/50 hover:bg-white/70'">
-                                          <canvas class="avatar-mini size-10" width="48" height="48"
-                                                :data-pattern="p.id"
-                                                style="image-rendering: pixelated"></canvas>
-                                          <span class="text-xs font-black" :class="pattern === p.id ? 'text-fuchsia-700' : 'text-slate-600'">{{ p.label }}</span>
-                                    </button>
+                              <div v-for="g in groupedPatterns" :key="g.group" class="mt-5">
+                                    <p class="mb-2 text-sm font-black text-slate-700">🧩 <span class="text-slate-400 text-xs uppercase tracking-wide">{{ g.group }}</span></p>
+                                    <div class="grid grid-cols-4 gap-2">
+                                      <button v-for="p in g.items" :key="p.id" @click="setPattern(p.id)"
+                                            class="flex flex-col items-center gap-1 rounded-2xl border p-1.5 transition-colors"
+                                            :class="pattern === p.id ? 'border-fuchsia-500 bg-fuchsia-100 ring-1 ring-fuchsia-400' : 'border-white/60 bg-white/50 hover:bg-white/70'">
+                                            <canvas class="avatar-mini size-9" width="48" height="48"
+                                                  :data-pattern="p.id"
+                                                  style="image-rendering: pixelated"></canvas>
+                                            <span class="text-[10px] font-black leading-tight" :class="pattern === p.id ? 'text-fuchsia-700' : 'text-slate-600'">{{ p.label }}</span>
+                                      </button>
+                                    </div>
                               </div>
 
-                              <p class="mt-4 rounded-2xl bg-sl px-3 py-2 text-center text-xs font-bold text-slae-500">
+                              <p class="mt-4 rounded-2xl bg-slate-100 px-3 py-2 text-center text-xs font-bold text-slate-500">
                                     🎲 Tap the dice to randomize color &amp; pattern (black &amp; white included)
                               </p>
                         </div>

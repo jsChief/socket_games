@@ -299,6 +299,15 @@ function connectPlayer(socket, data) {
 
   // Let every connected client see the updated online players list
   io.emit("online-players", getOnlinePlayers());
+
+  // Push this player's stored private chats now that they are known here. The
+  // client asks for these on connect too, but at that point the player may not
+  // be registered yet, so this push is what actually makes chats with offline
+  // players show up after logging in.
+  sendPrivateChatList(
+    socket,
+    players.find((p) => p.id === socket.id),
+  );
 }
 
 // Register a brand new player into the global player list (no seating).
@@ -496,6 +505,58 @@ function avatarDisplayUrl(name, uid) {
   return avatars.avatarUrlIfExists(name, { uid });
 }
 
+// Resolve a persistent user id to its account. Accounts are keyed by username,
+// so this is a scan, but the account list is a small circle of friends. Needed
+// for private chat, where the partner may be offline and therefore absent from
+// `players`.
+function accountByUid(uid) {
+  const key = String(uid || "");
+  if (!key) return null;
+  for (const name in accounts.accounts) {
+    const acc = accounts.accounts[name];
+    if (acc && acc.persistentUserId === key) return acc;
+  }
+  return null;
+}
+
+// Build the list of stored private chats for a user: partner identity, avatar
+// and the last message. This is what lets the client list conversations with
+// people who are offline, and keeps that list across a page reload.
+function buildPrivateChatList(uid) {
+  return privateChat
+    .listConversations(uid)
+    .map((c) => {
+      const acc = accountByUid(c.partnerUid);
+      const live = players.find(
+        (p) => p.persistentUserId === c.partnerUid && !p.isBot,
+      );
+      // Prefer the live name, then the account's current username (so renames
+      // take effect), then whatever name the partner last sent.
+      const name = (live && live.name) || (acc && acc.username) || c.partnerName;
+      return {
+        partnerUid: c.partnerUid,
+        partnerName: name || "Unknown player",
+        avatarUrl: name ? avatarDisplayUrl(name, c.partnerUid) : null,
+        lastText: c.lastText,
+        lastAt: c.lastAt,
+        lastFromUid: c.lastFromUid,
+        count: c.count,
+      };
+    });
+}
+
+// Send a player their stored private chats. Called whenever the server learns
+// who the player is (token reconnect, login, register) as well as on demand.
+// Doing it here means the client never has to win a race to ask at exactly the
+// right moment - a request that arrives before the player is registered used to
+// be dropped without a reply, leaving an empty chat list for the whole session.
+function sendPrivateChatList(socket, player) {
+  if (!socket || !player || !player.persistentUserId) return;
+  socket.emit("private-chats", {
+    conversations: buildPrivateChatList(player.persistentUserId),
+  });
+}
+
 function getOnlinePlayers() {
   return players
     .filter((p) => p.online && !p.isBot)
@@ -507,7 +568,6 @@ function getOnlinePlayers() {
       roomCode: p.roomCode,
       avatarUrl: avatarDisplayUrl(p.name, p.persistentUserId),
     }));
-    
 }
 
 // Start the selected game when both seated players agree on one.
@@ -833,7 +893,8 @@ io.on("connection", (socket) => {
     const avatarColor = avatars.sanitizeColor(
       avatarSettings.color !== undefined ? avatarSettings.color : avatarSettings.hue,
     );
-    const avatarPattern = avatarSettings.pattern || "rings";
+    const avatarPattern =
+      avatars.sanitizePattern(avatarSettings.pattern) || avatars.DEFAULT_PATTERN;
     socket.emit("my-profile", {
       name: player.name,
       uid,
@@ -875,7 +936,7 @@ io.on("connection", (socket) => {
     const color = avatars.sanitizeColor(rawColor);
     const pattern = avatars.sanitizePattern(data && data.pattern);
     const finalColor = color != null ? color : avatars.baseHueOf(player.name);
-    const finalPattern = pattern || "rings";
+    const finalPattern = pattern || avatars.DEFAULT_PATTERN;
     avatars.setAvatarSettings(player.persistentUserId, {
       color: finalColor,
       pattern: finalPattern,
@@ -1103,24 +1164,54 @@ io.on("connection", (socket) => {
       players.find(
         (p) => p.id === (data && data.to) && p.online && !p.isBot,
       );
-    if (!target) return;
+    // The recipient does not have to be connected. The message is stored either
+    // way, so their history stays complete and they can read it later; it is
+    // only pushed over the socket when they are actually online.
+    const partnerUid = target
+      ? target.persistentUserId
+      : (data && data.toUid) || "";
+    if (!partnerUid || partnerUid === from.persistentUserId) return;
+    // A message aimed at someone who is offline is addressed by uid alone, so
+    // the server has to recognise the recipient. A disconnected player is still
+    // in `players`, and an account is in `accounts.accounts`; anything else is
+    // an id the client made up, which we reject so the store cannot be filled
+    // with fabricated conversations.
+    const knownPartner =
+      players.find((p) => p.persistentUserId === partnerUid && !p.isBot) ||
+      accountByUid(partnerUid);
+    if (!knownPartner) return;
+    const partnerName =
+      (target && target.name) || knownPartner.name || knownPartner.username || "";
     const saved = privateChat.addMessage(
       from.persistentUserId,
-      target.persistentUserId,
+      partnerUid,
       from.persistentUserId,
       from.name,
       text,
       (data && data.replyTo) || null,
     );
-    io.to(target.id).emit("private-message", {
-      fromId: socket.id,
-      fromUid: from.persistentUserId,
-      fromName: from.name,
-      text,
-      replyTo: saved.replyTo,
-      at: saved.at,
-    });
-    console.log("[dm] " + from.name + " → " + target.name + ": " + text);
+    if (target) {
+      io.to(target.id).emit("private-message", {
+        fromId: socket.id,
+        fromUid: from.persistentUserId,
+        fromName: from.name,
+        text,
+        replyTo: saved.replyTo,
+        at: saved.at,
+      });
+      console.log("[dm] " + from.name + " → " + target.name + ": " + text);
+    } else {
+      console.log(
+        "[dm] " + from.name + " → " + partnerName + " (offline): " + text,
+      );
+    }
+  });
+
+  // On-demand refresh of the same list (the client asks again whenever the chat
+  // panel is opened). The authoritative push happens in connectPlayer().
+  socket.on("list-private-chats", () => {
+    const from = players.find((p) => p.id === socket.id);
+    sendPrivateChatList(socket, from);
   });
 
   socket.on("join-private-chat", (data) => {
