@@ -219,6 +219,9 @@ function connectSocket() {
                   token: localStorage.getItem("authToken") || "",
                   persistentUserId: persistentUserId,
             });
+            // Pull the stored private-chat list so previous conversations are
+            // listed even when the other player is offline.
+            if (app.$refs.chat) app.$refs.chat.requestConversationList();
       });
 
       socket.on("auth-required", () => {
@@ -238,6 +241,8 @@ function connectSocket() {
                               data.persistentUserId,
                         );
             }
+            // Re-read the list now that the account is confirmed.
+            if (app.$refs.chat) app.$refs.chat.requestConversationList();
             app.myName = data.username || app.myName;
             const saved = sessionStorage.getItem("view");
             app.view = ["tictactoe", "pizza", "reversi", "rps", "connect4", "spectator", "room"].includes(saved)
@@ -667,6 +672,10 @@ function connectSocket() {
             if (app.$refs.chat) app.$refs.chat.receivePrivateHistory(data);
       });
 
+      socket.on("private-chats", (data) => {
+            if (app.$refs.chat) app.$refs.chat.receivePrivateChats(data);
+      });
+
       socket.on("my-profile", (data) => {
             app.profile = data;
             if (data && data.avatarUrl) app.myAvatarUrl = data.avatarUrl;
@@ -692,7 +701,7 @@ function showToast(message, type) {
       if (!container) return;
       var toast = document.createElement("div");
       toast.className =
-            "w-fit max-w-full px-4 py-2 rounded-2xl shadow-xl text-sm font-bold text-white backdrop-blur-sm transition-all duration-300 " +
+            "w-fit max-w-full px-4 py-2 rounded-2xl shadow-xl text-sm font-bold text-white transition-all duration-300 " +
             (type === "success"
                   ? "bg-green-600/90"
                   : type === "error"

@@ -44,7 +44,7 @@ Vue.component("pizza-view", {
                   }
                   if (this.phase === "over") {
                         return this.result === "won"
-                              ? "You found all the slices! You win! 🎉"
+                              ? "You found all the slices! You win!"
                               : (this.opponentName || "Opponent") +
                                       " found all your slices. You lose.";
                   }
@@ -448,7 +448,7 @@ Vue.component("pizza-view", {
 
                   <!-- Result overlay -->
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55">
                         <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">{{ result === 'won' ? '🎉' : '😢' }}</div>

@@ -98,7 +98,7 @@ Vue.component("reversi-view", {
                   if (this.phase === "over") {
                         if (this.result === "draw") return "It's a draw!";
                         return this.result === "won"
-                              ? "You win! 🎉"
+                              ? "You win!"
                               : (this.opponentName || "Opponent") + " wins.";
                   }
                   return this.myTurn
@@ -411,7 +411,7 @@ Vue.component("reversi-view", {
 
                   <!-- Result overlay -->
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55">
                         <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">

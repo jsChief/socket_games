@@ -64,7 +64,7 @@ Vue.component("howto-dialog", {
       },
       template: `
             <div v-if="open" class="fixed inset-0 z-[90] flex items-center justify-center p-4">
-                  <div class="absolute inset-0 bg-black/55 backdrop-blur-sm" @click="close"></div>
+                  <div class="absolute inset-0 bg-black/55" @click="close"></div>
                   <div class="howto-pop relative w-full max-w-md overflow-hidden rounded-3xl bg-white/95 shadow-2xl">
                         <div class="relative overflow-hidden bg-gradient-to-br px-6 py-5 text-white"
                               :class="spec.accent">
