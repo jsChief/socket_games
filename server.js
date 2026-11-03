@@ -29,7 +29,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "http://localhost:3000",
+      "http://localhost:3001",
       "http://192.168.43.219:3000",
       "http://192.168.0.139:3000",
       "http://192.168.0.180:3000", //wp-360
@@ -1341,7 +1341,7 @@ io.on("connection", (socket) => {
 
 //console.log("serving!");
 // Everything now runs on port 3000 (override with PORT env var)!
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(
     `Game and WebSockets running together on http://localhost:${PORT}`,

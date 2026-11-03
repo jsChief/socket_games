@@ -1,10 +1,10 @@
 const socketUrls = [
        //wp-360
+       "http://localhost:3001",
       "https://fond-dory-suitable.ngrok-free.app",
       "http://192.168.0.180:3000",
       "http://192.168.43.219:3000", //wp-360
       "http://192.168.0.139:3000",
-      "http://localhost:3000",
 ];
 var socket = null;
 var currentSocketUrlIndex = 0;
