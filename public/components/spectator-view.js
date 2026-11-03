@@ -165,7 +165,7 @@ Vue.component("spectator-view", {
                                     );
                               }
                               if (this.ttt.table && this.ttt.table.some((c) => c))
-                                    return "It's a draw! 🤝";
+                                    return "It's a draw!";
                               return "Waiting for a game to start...";
                         }
                         return (this.ttt.names[this.ttt.currentPlayer] || "Player") + "'s turn";
@@ -182,7 +182,7 @@ Vue.component("spectator-view", {
                                     const idx = this.rev.symbols.indexOf("w");
                                     return (this.rev.names[idx] || "Player") + " wins! 🎉";
                               }
-                              return "It's a draw! 🤝";
+                              return "It's a draw!";
                         }
                         const ridx = this.rev.symbols.indexOf(this.rev.currentSymbol);
                         return (this.rev.names[ridx] || "Player") + "'s turn";
@@ -229,7 +229,7 @@ Vue.component("spectator-view", {
                                     const idx = this.c4.symbols.indexOf(sym);
                                     return (this.c4.names[idx] || "Player") + " wins! 🎉";
                               }
-                              return "It's a draw! 🤝";
+                              return "It's a draw!";
                         }
                         const cidx = this.c4.symbols.indexOf(this.c4.currentSymbol);
                         return (this.c4.names[cidx] || "Player") + "'s turn";

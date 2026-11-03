@@ -269,14 +269,21 @@ Every account gets a generated pixel-art profile picture.
 
 > **Status:** DONE.
 >
-> - A dependency-free generator, `lib/avatars.js`, hashes the username and
->   produces a mirrored identicon-style sprite (8×8 grid, 3 tones from the name
->   hue, scaled 8×) encoded as a real PNG via a tiny built-in encoder (Node's
->   `zlib` for compression + a hand-rolled CRC32 — no npm packages added).
-> - **Storage:** the PNGs are written to `public/avatars/<slug>.png` (gitignored)
->   and served straight from the existing static folder, so they persist across
->   restarts and the browser caches them. Missing files are re-derived
->   deterministically, so nothing is ever lost.
+> - A dependency-free generator, `public/avatar-core.js` (shared verbatim by the
+>   browser and `lib/avatars.js`), hashes the username and produces a mirrored
+>   identicon-style sprite (16x16 grid, 3 tones from the name hue, scaled 4x to
+>   64x64) encoded as a real PNG via a tiny built-in encoder (Node's `zlib` for
+>   compression + a hand-rolled CRC32 - no npm packages added). One copy of the
+>   generator means the Avatar Studio preview is always pixel-identical to the
+>   saved PNG.
+> - **Patterns:** 21 of them, from chunky 2x2 identicons up to a seeded DFS
+>   maze, a mirrored Voronoi mosaic, a fractal-noise topographic map, sine-wave
+>   plasma, a basket weave, patchwork quilting and PCB traces. Bumping
+>   `AVATAR_GEN_VERSION` in the core regenerates every avatar.
+> - **Storage:** the PNGs are written to `public/avatars/<slug>-<tag>.png`
+>   (gitignored) and served straight from the existing static folder, so they
+>   persist across restarts and the browser caches them. Missing files are
+>   re-derived deterministically, so nothing is ever lost.
 > - Avatars are generated on register / login / reconnect and backfilled when
 >   the admin Users tab loads. Deleting an account also deletes its avatar file.
 > - Shown at the top of the games lobby (your avatar + every online player's)

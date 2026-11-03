@@ -35,7 +35,7 @@ Vue.component("rps-view", {
                   if (this.phase === "idle") return "awaiting a game";
                   if (this.phase === "over") {
                         return this.result === "won"
-                              ? "You win the match! 🎉"
+                              ? "You win the match!"
                               : (this.opponentName || "Opponent") + " wins the match.";
                   }
                   return this.status;
@@ -359,7 +359,7 @@ Vue.component("rps-view", {
 
                   <!-- Result overlay -->
                   <div v-if="phase === 'over' && result && !overlayDismissed" @click="dismissOverlay"
-                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+                        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/55">
                         <div class="howto-pop w-80 max-w-[90vw] rounded-3xl px-7 py-7 text-center text-white shadow-2xl"
                               :class="resultBannerClass">
                               <div class="text-6xl mb-2">

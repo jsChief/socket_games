@@ -4,7 +4,9 @@
   "description": "websocket game project",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/rooms.e2e.js",
+    "test": "node tests/rooms.e2e.js && node tests/private-chat.e2e.js && node tests/chat-preview.test.js",
+    "test:rooms": "node tests/rooms.e2e.js",
+    "test:chat": "node tests/private-chat.e2e.js && node tests/chat-preview.test.js",
     "start": "node server.js"
   },
   "author": "James Ope",
